@@ -56,7 +56,7 @@ function resolveConfigPathFromArgv(argv: string[]): string | undefined {
 program
 	.name("understudy")
 	.description("Understudy — The teachable GUI agent runtime")
-	.version("0.1.0");
+	.version("0.1.1");
 
 program
 	.command("chat")

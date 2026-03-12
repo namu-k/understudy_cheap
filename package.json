@@ -1,6 +1,6 @@
 {
   "name": "@understudy-ai/understudy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first teachable GUI agent runtime with gateway, web UI, channels, and tools",
   "keywords": [
     "agent",
@@ -69,10 +69,12 @@
 	"packageManager": "pnpm@10.6.5",
 	"license": "MIT",
 	"dependencies": {
+		"@clack/prompts": "^1.1.0",
 		"@mariozechner/pi-agent-core": "^0.56.2",
 		"@mariozechner/pi-ai": "^0.56.2",
 		"@mariozechner/pi-coding-agent": "^0.56.2",
 		"@mariozechner/pi-tui": "^0.56.2",
+		"@sinclair/typebox": "^0.34.48",
 		"commander": "^13.1.0",
 		"croner": "^9.1.0",
 		"dotenv": "^16.4.7",

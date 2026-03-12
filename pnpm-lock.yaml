@@ -11,6 +11,9 @@ importers:
 
   .:
     dependencies:
+      '@clack/prompts':
+        specifier: ^1.1.0
+        version: 1.1.0
       '@mariozechner/pi-agent-core':
         specifier: ^0.56.2
         version: 0.56.3(ws@8.19.0)(zod@3.25.76)
@@ -23,6 +26,9 @@ importers:
       '@mariozechner/pi-tui':
         specifier: ^0.56.2
         version: 0.56.3
+      '@sinclair/typebox':
+        specifier: ^0.34.48
+        version: 0.34.48
       commander:
         specifier: ^13.1.0
         version: 13.1.0

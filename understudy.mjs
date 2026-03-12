@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import module from "node:module";
+import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const MIN_NODE_MAJOR = 20;
 const MIN_NODE_VERSION = `${MIN_NODE_MAJOR}.0.0`;
@@ -54,29 +56,13 @@ if (!process.env.PI_CODING_AGENT_DIR?.trim()) {
 	process.env.PI_CODING_AGENT_DIR = resolveUnderstudyAgentDir();
 }
 
-const isModuleNotFoundError = (error) =>
-	Boolean(error) &&
-	typeof error === "object" &&
-	"code" in error &&
-	error.code === "ERR_MODULE_NOT_FOUND";
+const workspaceCliEntry = new URL("./apps/cli/dist/bin.js", import.meta.url);
+const packedBundleEntry = new URL("./dist/index.js", import.meta.url);
 
-const tryImport = async (specifier) => {
-	try {
-		await import(specifier);
-		return true;
-	} catch (error) {
-		if (isModuleNotFoundError(error)) {
-			return false;
-		}
-		throw error;
-	}
-};
-
-if (await tryImport("./apps/cli/dist/bin.js")) {
-	// Workspace CLI build output.
-} else if (await tryImport("./dist/index.js")) {
-	// Packed/published bundle entry.
-	// loaded
+if (existsSync(fileURLToPath(workspaceCliEntry))) {
+	await import(workspaceCliEntry.href);
+} else if (existsSync(fileURLToPath(packedBundleEntry))) {
+	await import(packedBundleEntry.href);
 } else {
 	throw new Error("understudy: missing apps/cli/dist/bin.js or dist/index.js (build output).");
 }
