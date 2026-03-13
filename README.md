@@ -108,6 +108,8 @@ For implementation details (coordinate spaces, stabilization, cross-attempt feed
 /teach publish <draftId> [skill-name]     Generate SKILL.md → hot-load into active sessions
 ```
 
+> **Teach privacy note:** demonstration videos, event logs, and traces are stored locally by default. However, teach analysis and GUI grounding may send selected screenshots, keyframes, or other image evidence to your configured model provider.
+
 The published SKILL.md is a three-layer abstraction: intent procedure (natural language steps), route options (preferred / fallback paths), and GUI replay hints (last resort only, re-grounded from the current screenshot each time). UI redesigns, window resizing, even switching to a similar app — as long as the semantic target still exists, the skill works.
 
 A real published output example is available at [examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md). It is kept under `examples/` on purpose, so the repo documents the artifact format without auto-loading it as a real workspace skill.
@@ -432,6 +434,14 @@ Understudy builds on ideas and code from several outstanding open-source project
 | [openai-cua-sample-app](https://github.com/openai/openai-cua-sample-app) | Computer use agent reference patterns |
 
 Special thanks to [Mario Zechner](https://github.com/badlogic) for the `pi-agent-core` foundation that powers Understudy's agent loop.
+
+## Contributors
+
+Thanks to everyone who has contributed to Understudy.
+
+<a href="https://github.com/understudy-ai/understudy/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=understudy-ai/understudy" alt="Contributors" />
+</a>
 
 ## Contributing
 

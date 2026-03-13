@@ -139,6 +139,8 @@ A demonstration teaches a **task-shaped skill**, not a random list of clicks:
   → Hot-refreshes system prompts of all active sessions bound to the same workspace
 ```
 
+**Privacy note:** demonstration artifacts are stored locally by default, but teach analysis and GUI grounding may send selected screenshots, keyframes, or other image evidence to the configured model provider.
+
 ### What It Is NOT
 
 This is not a coordinate macro recorder. Understudy learns:

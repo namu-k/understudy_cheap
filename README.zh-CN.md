@@ -108,6 +108,8 @@ Planner 决定每一步使用哪条路线。一个任务可能浏览网站、运
 /teach publish <draftId> [skill-name]     生成 SKILL.md → 热加载到活跃 session
 ```
 
+> **Teach 隐私提示：** 演示视频、事件日志和执行轨迹默认保存在本地；但 teach 分析和 GUI grounding 在运行时，可能会将选定的截图、关键帧或其他图像证据发送给你当前配置的模型提供方。
+
 发布的 SKILL.md 是三层抽象结构：意图流程（自然语言步骤）、路线选项（preferred / fallback 路径）、GUI 回放提示（仅作兜底，每次从当前截图重新 grounding）。UI 改版、窗口大小变化、甚至换了一个功能相似的应用，只要语义目标还在，技能就能执行。
 
 仓库里放了一个真实发布产物示例：[examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md)。它故意放在 `examples/` 下，只用于展示产物格式，不会被当成真正的 workspace skill 自动加载。
@@ -431,6 +433,14 @@ Understudy 构建于以下优秀开源项目的思路和代码之上：
 | [openai-cua-sample-app](https://github.com/openai/openai-cua-sample-app) | Computer use agent 参考实现 |
 
 特别感谢 [Mario Zechner](https://github.com/badlogic) 提供的 `pi-agent-core` 基础，它驱动了 Understudy 的 agent 循环。
+
+## Contributors
+
+感谢所有为 Understudy 做出贡献的开发者。
+
+<a href="https://github.com/understudy-ai/understudy/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=understudy-ai/understudy" alt="Contributors" />
+</a>
 
 ## 参与贡献
 
