@@ -530,15 +530,15 @@ function createPlaywrightDomGroundingProvider(getSurfaces: () => BrowserGuiSurfa
 					const { rect, visibleRect, score } = selected;
 					const centerX = Math.round((visibleRect.left + visibleRect.right) / 2);
 					const centerY = Math.round((visibleRect.top + visibleRect.bottom) / 2);
-						return {
-							method: "grounding",
-							provider: "playwright-dom",
-							confidence: 1,
-							reason: `Matched ${label}${params.locationHint ? ` via ${params.locationHint}` : ""}`,
-							coordinateSpace: "display_pixels",
-							point: {
-								x: Math.round(params.viewportOrigin.x + centerX),
-								y: Math.round(params.viewportOrigin.y + centerY),
+					return {
+						method: "grounding",
+						provider: "playwright-dom",
+						confidence: 1,
+						reason: `Matched ${label}${params.locationHint ? ` via ${params.locationHint}` : ""}`,
+						coordinateSpace: "display_pixels",
+						point: {
+							x: Math.round(params.viewportOrigin.x + centerX),
+							y: Math.round(params.viewportOrigin.y + centerY),
 						},
 						box: {
 							x: Math.round(params.viewportOrigin.x + visibleRect.left),
@@ -938,6 +938,112 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			place-items: center;
 			background: rgba(124, 167, 223, 0.12);
 		}
+		.slider-puzzle-shell {
+			margin-top: 220px;
+			max-width: 380px;
+			padding: 14px;
+			border-radius: 18px;
+			border: 1px solid rgba(19, 34, 53, 0.1);
+			background: linear-gradient(180deg, #f9fbff 0%, #eef4fb 100%);
+		}
+		.slider-puzzle-stage {
+			position: relative;
+			width: 360px;
+			height: 128px;
+			overflow: hidden;
+			border-radius: 18px;
+			border: 1px solid rgba(19, 34, 53, 0.12);
+			background:
+				radial-gradient(circle at 25% 28%, rgba(255, 255, 255, 0.58) 0 16%, transparent 17%),
+				radial-gradient(circle at 70% 36%, rgba(255, 214, 138, 0.42) 0 14%, transparent 15%),
+				linear-gradient(135deg, #d7e8ff 0%, #c6def9 38%, #f8efe1 100%);
+		}
+		.slider-puzzle-stage::before {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background:
+				linear-gradient(90deg, rgba(255, 255, 255, 0.22) 0 12%, transparent 12% 20%, rgba(255, 255, 255, 0.16) 20% 28%, transparent 28% 100%),
+				repeating-linear-gradient(90deg, rgba(19, 34, 53, 0.04) 0 24px, transparent 24px 48px);
+			pointer-events: none;
+		}
+		#slider-puzzle-gap,
+		#slider-puzzle-piece {
+			position: absolute;
+			top: 28px;
+			width: 58px;
+			height: 58px;
+			border-radius: 16px;
+		}
+		#slider-puzzle-gap {
+			left: 244px;
+			border: 2px dashed rgba(78, 117, 173, 0.72);
+			background: rgba(255, 255, 255, 0.2);
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+		}
+		#slider-puzzle-piece {
+			left: 18px;
+			border: 1px solid rgba(78, 117, 173, 0.54);
+			background:
+				radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.7) 0 18%, transparent 19%),
+				linear-gradient(135deg, #fff7e8 0%, #ffd9a4 38%, #d0e4ff 100%);
+			box-shadow: 0 12px 20px rgba(19, 34, 53, 0.16);
+			pointer-events: none;
+		}
+		.slider-track-caption {
+			margin-top: 12px;
+			font-size: 12px;
+			color: #51697f;
+		}
+		#slider-track {
+			position: relative;
+			margin-top: 10px;
+			width: 360px;
+			height: 52px;
+			border-radius: 999px;
+			border: 1px solid rgba(19, 34, 53, 0.12);
+			background: rgba(255, 255, 255, 0.82);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+		}
+		#slider-track::before {
+			content: "Slide to complete";
+			position: absolute;
+			inset: 0;
+			display: grid;
+			place-items: center;
+			font-size: 13px;
+			color: #6c8195;
+			letter-spacing: 0.01em;
+			pointer-events: none;
+		}
+		#slider-target-marker {
+			position: absolute;
+			left: 256px;
+			top: 11px;
+			width: 48px;
+			height: 30px;
+			border-radius: 999px;
+			border: 1px dashed rgba(90, 141, 216, 0.72);
+			background: rgba(90, 141, 216, 0.16);
+			box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+		}
+		#slider-thumb {
+			position: absolute;
+			left: 12px;
+			top: 8px;
+			width: 48px;
+			height: 36px;
+			border-radius: 999px;
+			border: 1px solid rgba(90, 141, 216, 0.84);
+			background: linear-gradient(180deg, #ffffff 0%, #dbe8fb 100%);
+			display: grid;
+			place-items: center;
+			font-size: 18px;
+			font-weight: 700;
+			color: #3d628d;
+			box-shadow: 0 8px 16px rgba(61, 98, 141, 0.2);
+			user-select: none;
+		}
 			#scroll-area {
 				height: 180px;
 				overflow: auto;
@@ -979,7 +1085,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				background: #fff6d9;
 			}
 			#reorder-list {
-				margin-top: 160px;
+				margin-top: 28px;
 				display: grid;
 				gap: 10px;
 				max-width: 220px;
@@ -998,10 +1104,44 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			.status {
 				font-size: 13px;
 				color: #496076;
-		}
-		#delayed-badge[hidden] {
-			display: none;
-		}
+			}
+			.delayed-badge {
+				display: inline-flex;
+				align-items: center;
+				padding: 10px 14px;
+				border-radius: 999px;
+				border: 1px solid rgba(34, 107, 68, 0.28);
+				background: linear-gradient(135deg, #ecfff2 0%, #d4f7de 100%);
+				color: #1f5b37;
+				font-size: 15px;
+				font-weight: 600;
+				box-shadow: 0 8px 22px rgba(31, 91, 55, 0.12);
+			}
+			.delayed-panel {
+				display: grid;
+				gap: 4px;
+				padding: 14px 16px;
+				border-radius: 16px;
+				border: 1px solid rgba(29, 101, 61, 0.2);
+				background: linear-gradient(135deg, #f5fff7 0%, #dff8e8 100%);
+				color: #15482c;
+				box-shadow: 0 14px 32px rgba(21, 72, 44, 0.12);
+				max-width: 320px;
+			}
+			.delayed-panel strong {
+				font-size: 17px;
+				font-weight: 700;
+			}
+			.delayed-panel span {
+				font-size: 14px;
+				color: #2e6a46;
+			}
+			#delayed-badge[hidden] {
+				display: none;
+			}
+			#delayed-panel[hidden] {
+				display: none;
+			}
 	</style>
 </head>
 <body>
@@ -1030,23 +1170,36 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				<div id="right-click-status">right-click:none</div>
 				<div id="hover-status">hover:none</div>
 				<div id="hold-status">hold:none</div>
-				<div id="click-confirmation" data-gui-target="Click confirmation" hidden>click:done</div>
-				<div id="context-menu" data-gui-target="Context menu" hidden>Context menu</div>
-				<div id="hover-tooltip" data-gui-target="Hover tooltip" hidden>Tooltip ready</div>
-					<div id="hold-badge" data-gui-target="Hold badge" hidden>Hold ready</div>
-					<div id="drop-confirmation" data-gui-target="Drop confirmation" hidden>Drop complete</div>
-					<div id="reorder-status">reorder:Draft card | Review card | Released card</div>
+					<div id="click-confirmation" data-gui-target="Click confirmation" hidden>click:done</div>
+					<div id="context-menu" data-gui-target="Context menu" hidden>Context menu</div>
+					<div id="hover-tooltip" data-gui-target="Hover tooltip" hidden>Tooltip ready</div>
+						<div id="hold-badge" data-gui-target="Hold badge" hidden>Hold ready</div>
+						<div id="drop-confirmation" data-gui-target="Drop confirmation" hidden>Drop complete</div>
+						<div id="reorder-status">reorder:Draft card | Review card | Released card</div>
 					<div id="reorder-confirmation" data-gui-target="Reorder confirmation" hidden>Reorder complete</div>
+					<div id="slider-status">slider:idle</div>
+					<div id="slider-confirmation" data-gui-target="Slider puzzle confirmation" hidden>Slider puzzle solved</div>
 				</div>
 				<div id="drag-source" data-gui-target="Draggable card">Drag me</div>
 				<div id="drop-zone" data-gui-target="Drop zone">Drop zone</div>
 				<div id="cross-window-source" data-gui-target="Cross-window card" style="position:absolute; left:48px; top:318px; width:140px; height:52px; border-radius:14px; display:grid; place-items:center; background:#f4e6ff; border:1px solid #b08adc; user-select:none;">Cross-window card</div>
-				<div id="reorder-list">
-					<div class="reorder-item" id="reorder-draft" data-gui-target="Draft card" data-reorder-item="draft">Draft card</div>
-					<div class="reorder-item" id="reorder-review" data-gui-target="Review card" data-reorder-item="review">Review card</div>
-					<div class="reorder-item" id="reorder-released" data-gui-target="Released card" data-reorder-item="released">Released card</div>
+					<div class="slider-puzzle-shell">
+						<div class="slider-puzzle-stage" aria-label="Slider puzzle stage">
+							<div id="slider-puzzle-gap" data-gui-target="Puzzle gap"></div>
+						<div id="slider-puzzle-piece"></div>
+					</div>
+					<div class="slider-track-caption">Move the slider until the floating tile fills the gap.</div>
+						<div id="slider-track">
+							<div id="slider-target-marker" data-gui-target="Puzzle completion marker"></div>
+							<div id="slider-thumb" data-gui-target="Puzzle slider thumb">›</div>
+						</div>
+					</div>
+					<div id="reorder-list">
+						<div class="reorder-item" id="reorder-draft" data-gui-target="Draft card" data-reorder-item="draft">Draft card</div>
+						<div class="reorder-item" id="reorder-review" data-gui-target="Review card" data-reorder-item="review">Review card</div>
+						<div class="reorder-item" id="reorder-released" data-gui-target="Released card" data-reorder-item="released">Released card</div>
+					</div>
 				</div>
-			</div>
 			<div class="card" data-gui-scope="Sidebar panel">
 				<div id="scroll-area" data-gui-target="Scroll area">
 					<div>Scroll from here.</div>
@@ -1061,7 +1214,13 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 					</div>
 				</div>
 				<div class="row" style="margin-top:16px">
-					<div id="delayed-badge" data-gui-target="Delayed badge" hidden>Ready</div>
+					<div class="delayed-badge" id="delayed-badge" data-gui-target="Delayed badge" hidden>Ready to continue</div>
+				</div>
+				<div style="margin-top:12px">
+					<div class="delayed-panel" id="delayed-panel" data-gui-target="Processing complete panel" hidden>
+						<strong>Processing complete</strong>
+						<span>Ready to continue with the next step.</span>
+					</div>
 				</div>
 		</div>
 	</div>
@@ -1091,6 +1250,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			const reorderStatusEl = document.getElementById("reorder-status");
 			const reorderConfirmation = document.getElementById("reorder-confirmation");
 			const delayedBadge = document.getElementById("delayed-badge");
+			const delayedPanel = document.getElementById("delayed-panel");
 			const scrollArea = document.getElementById("scroll-area");
 			const nestedScrollArea = document.getElementById("nested-scroll-area");
 			const crossWindowSource = document.getElementById("cross-window-source");
@@ -1098,12 +1258,78 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			const reorderDraft = document.getElementById("reorder-draft");
 			const reorderReview = document.getElementById("reorder-review");
 			const reorderReleased = document.getElementById("reorder-released");
+			const sliderTrack = document.getElementById("slider-track");
+			const sliderThumb = document.getElementById("slider-thumb");
+			const sliderPuzzlePiece = document.getElementById("slider-puzzle-piece");
+			const sliderStatusEl = document.getElementById("slider-status");
+			const sliderConfirmation = document.getElementById("slider-confirmation");
 			window.__understudyLastMouse = null;
 			window.__understudyCrossWindowDrag = "idle";
 			window.__understudyCrossWindowDrop = "pending";
 			let holdTimer = null;
 			let holdTriggered = false;
 			let reorderDraggingItem = null;
+			let sliderDragging = false;
+			const sliderThumbMinX = 12;
+			const sliderThumbSolvedX = 256;
+			const sliderThumbMaxX = 300;
+			const sliderPieceStartX = 18;
+			const sliderPieceSolvedX = 244;
+
+		function clamp(value, min, max) {
+			return Math.min(max, Math.max(min, value));
+		}
+
+		function setSliderPuzzlePosition(nextThumbX) {
+			const thumbX = clamp(nextThumbX, sliderThumbMinX, sliderThumbMaxX);
+			sliderThumb.style.left = thumbX + "px";
+			const progress = clamp(
+				(thumbX - sliderThumbMinX) / Math.max(1, sliderThumbSolvedX - sliderThumbMinX),
+				0,
+				1,
+			);
+			const pieceX = sliderPieceStartX + ((sliderPieceSolvedX - sliderPieceStartX) * progress);
+			sliderPuzzlePiece.style.left = Math.round(pieceX) + "px";
+			return thumbX;
+		}
+
+		function updateSliderPuzzleFromClientX(clientX) {
+			const trackRect = sliderTrack.getBoundingClientRect();
+			const thumbRect = sliderThumb.getBoundingClientRect();
+			const nextThumbX = clientX - trackRect.left - (thumbRect.width / 2);
+			const thumbX = setSliderPuzzlePosition(nextThumbX);
+			return Math.abs(thumbX - sliderThumbSolvedX) <= 12;
+		}
+
+		function pointWithinRect(clientX, clientY, rect, tolerance = 0) {
+			return (
+				clientX >= rect.left - tolerance &&
+				clientX <= rect.right + tolerance &&
+				clientY >= rect.top - tolerance &&
+				clientY <= rect.bottom + tolerance
+			);
+		}
+
+		function shouldStartSliderDrag(clientX, clientY) {
+			const thumbRect = sliderThumb.getBoundingClientRect();
+			const trackRect = sliderTrack.getBoundingClientRect();
+			return (
+				pointWithinRect(clientX, clientY, thumbRect, 18) ||
+				(
+					pointWithinRect(clientX, clientY, trackRect, 10) &&
+					clientX <= thumbRect.right + 24
+				)
+			);
+		}
+
+		function beginSliderDrag(clientX) {
+			if (sliderDragging) {
+				return;
+			}
+			sliderDragging = true;
+			sliderStatusEl.textContent = "slider:dragging";
+			updateSliderPuzzleFromClientX(clientX);
+		}
 
 		clickButton.addEventListener("click", () => {
 			statusEl.textContent = "clicked";
@@ -1170,31 +1396,68 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		dragSource.addEventListener("mousedown", () => {
 			dragging = true;
 		});
+		sliderThumb.addEventListener("mousedown", (event) => {
+			event.preventDefault();
+			beginSliderDrag(event.clientX);
+		});
+		sliderTrack.addEventListener("mousedown", (event) => {
+			if (!shouldStartSliderDrag(event.clientX, event.clientY)) {
+				return;
+			}
+			event.preventDefault();
+			beginSliderDrag(event.clientX);
+		});
+		document.addEventListener("mousedown", (event) => {
+			if (sliderDragging || !shouldStartSliderDrag(event.clientX, event.clientY)) {
+				return;
+			}
+			beginSliderDrag(event.clientX);
+		});
 		document.addEventListener("mousemove", (event) => {
 			window.__understudyLastMouse = {
 				clientX: event.clientX,
 				clientY: event.clientY,
 			};
-			if (!dragging) {
-				return;
+			if (dragging) {
+				dragSource.style.left = (event.clientX - 60) + "px";
+				dragSource.style.top = (event.clientY - 26) + "px";
 			}
-			dragSource.style.left = (event.clientX - 60) + "px";
-			dragSource.style.top = (event.clientY - 26) + "px";
+			if (
+				!sliderDragging &&
+				(event.buttons & 1) === 1 &&
+				shouldStartSliderDrag(event.clientX, event.clientY)
+			) {
+				beginSliderDrag(event.clientX);
+			}
+			if (sliderDragging) {
+				updateSliderPuzzleFromClientX(event.clientX);
+			}
 		});
 			document.addEventListener("mouseup", (event) => {
-				if (!dragging) {
-					return;
-			}
-			dragging = false;
-			const rect = dropZone.getBoundingClientRect();
-			if (
-				event.clientX >= rect.left &&
-				event.clientX <= rect.right &&
-				event.clientY >= rect.top &&
-				event.clientY <= rect.bottom
-			) {
-				statusEl.textContent = "dropped";
-					dropConfirmation.hidden = false;
+				if (dragging) {
+					dragging = false;
+					const rect = dropZone.getBoundingClientRect();
+					if (
+						event.clientX >= rect.left &&
+						event.clientX <= rect.right &&
+						event.clientY >= rect.top &&
+						event.clientY <= rect.bottom
+					) {
+						statusEl.textContent = "dropped";
+						dropConfirmation.hidden = false;
+					}
+				}
+				if (sliderDragging) {
+					sliderDragging = false;
+					const solved = updateSliderPuzzleFromClientX(event.clientX);
+					if (solved) {
+						setSliderPuzzlePosition(sliderThumbSolvedX);
+						statusEl.textContent = "slider-solved";
+						sliderStatusEl.textContent = "slider:solved";
+						sliderConfirmation.hidden = false;
+					} else {
+						sliderStatusEl.textContent = "slider:ready";
+					}
 				}
 			});
 
@@ -1242,17 +1505,19 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				}
 			});
 
-			window.showDelayedBadge = () => {
-				setTimeout(() => {
+		window.showDelayedBadge = () => {
+			setTimeout(() => {
 				delayedBadge.hidden = false;
+				delayedPanel.hidden = false;
 			}, 250);
 		};
 		window.hideDelayedBadge = () => {
 			setTimeout(() => {
 				delayedBadge.hidden = true;
+				delayedPanel.hidden = true;
 			}, 250);
 		};
-		window.resetSmokeState = () => {
+			window.resetSmokeState = () => {
 			if (holdTimer) {
 				clearTimeout(holdTimer);
 				holdTimer = null;
@@ -1266,6 +1531,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			rightClickStatusEl.textContent = "right-click:none";
 			hoverStatusEl.textContent = "hover:none";
 			holdStatusEl.textContent = "hold:none";
+			sliderStatusEl.textContent = "slider:idle";
 			input.value = "";
 			clickButton.blur();
 			doubleButton.blur();
@@ -1280,13 +1546,18 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				holdBadge.hidden = true;
 				dropConfirmation.hidden = true;
 			reorderConfirmation.hidden = true;
+			sliderConfirmation.hidden = true;
 			document.getElementById("click-confirmation").hidden = true;
 			delayedBadge.hidden = true;
+			delayedPanel.hidden = true;
+			window.scrollTo(0, 0);
 			window.__understudyLastMouse = null;
 			window.__understudyCrossWindowDrag = "idle";
 			window.__understudyCrossWindowDrop = "pending";
+			sliderDragging = false;
 			dragSource.style.left = "48px";
 				dragSource.style.top = "180px";
+				setSliderPuzzlePosition(sliderThumbMinX);
 				crossWindowSource.style.left = "48px";
 				crossWindowSource.style.top = "318px";
 				scrollArea.scrollTop = 0;
@@ -1375,7 +1646,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		await browser?.close();
 	}, REAL_GUI_SETUP_TIMEOUT_MS);
 
-	it("drives read, click, right click, double click, hover, click and hold, drag, scroll, type, keypress, hotkey, screenshot, and wait against a real browser window", async () => {
+	it("drives all 13 GUI operations through a grounded browser end-to-end scenario", async () => {
 		await prepareBrowserPagesForGui(popupPage, page);
 		await resetSmokePage(page, popupPage);
 		const runtime = browserRuntime;
@@ -1431,16 +1702,18 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 
 			const dragResult = await runtime.drag({
 				app: browserAppName,
-				fromTarget: "Draggable card",
-				toTarget: "Drop zone",
+				fromTarget: "Puzzle slider thumb",
+				toTarget: "Puzzle completion marker",
 				fromScope: "Workspace panel",
 				toScope: "Workspace panel",
-				fromLocationHint: "left side of the workspace panel",
-				toLocationHint: "right side of the workspace panel",
-				durationMs: 650,
+				fromLocationHint: "left side of the slider track",
+				toLocationHint: "right side of the slider track",
+				captureMode: "display",
+				durationMs: 700,
 			});
 			expect(dragResult.status.code).toBe("action_sent");
-			await expect.poll(async () => page.textContent("#status")).toBe("dropped");
+			await expect.poll(async () => page.textContent("#slider-status")).toBe("slider:solved");
+			await expect.poll(async () => page.textContent("#status")).toBe("slider-solved");
 
 			const scrollResult = await runtime.scroll({
 				app: browserAppName,
@@ -1541,6 +1814,10 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 	it("reorders a list via drag in a real browser window", async () => {
 		await prepareBrowserPagesForGui(popupPage, page);
 		await resetSmokePage(page, popupPage);
+		await page.$eval("#reorder-draft", (node: Element) =>
+			node.scrollIntoView({ block: "center", inline: "center" }),
+		);
+		await page.waitForTimeout(150);
 
 		const result = await browserRuntime.drag({
 			app: browserAppName,
@@ -1548,12 +1825,33 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			toTarget: "Released card",
 			fromScope: "Workspace panel",
 			toScope: "Workspace panel",
+			captureMode: "display",
 			durationMs: 450,
 		});
 		expect(result.status.code).toBe("action_sent");
 		await expect.poll(async () => page.textContent("#reorder-status")).toBe(
 			"reorder:Review card | Released card | Draft card",
 		);
+	}, REAL_GUI_TEST_TIMEOUT_MS);
+
+	it("solves a slider-style drag puzzle in a real browser window", async () => {
+		await prepareBrowserPagesForGui(popupPage, page);
+		await resetSmokePage(page, popupPage);
+
+		const result = await browserRuntime.drag({
+			app: browserAppName,
+			fromTarget: "Puzzle slider thumb",
+			toTarget: "Puzzle completion marker",
+			fromScope: "Workspace panel",
+			toScope: "Workspace panel",
+			fromLocationHint: "left side of the slider track",
+			toLocationHint: "right side of the slider track",
+			captureMode: "display",
+			durationMs: 700,
+		});
+		expect(result.status.code).toBe("action_sent");
+		await expect.poll(async () => page.textContent("#slider-status")).toBe("slider:solved");
+		await expect.poll(async () => page.textContent("#status")).toBe("slider-solved");
 	}, REAL_GUI_TEST_TIMEOUT_MS);
 
 	it("drags from the main browser window into the popup window", async () => {
@@ -1655,6 +1953,42 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			await expect.poll(async () =>
 				page.$eval("#scroll-area", (node: Element) => (node as HTMLElement).scrollTop),
 			).toBeGreaterThan(80);
+		},
+		REAL_GUI_GROUNDING_E2E_TIMEOUT_MS,
+	);
+
+	it.runIf(shouldRunRealGuiGroundingE2E)(
+		"drives grounded type and drag actions through real OpenAI grounding end to end",
+		async () => {
+			await prepareBrowserPagesForGui(popupPage, page);
+			await resetSmokePage(page, popupPage);
+			const runtime = await getRealOpenAIGroundedRuntime();
+
+			const typeResult = await runtime.type({
+				app: browserAppName,
+				target: "Type here input field",
+				scope: "Workspace panel",
+				locationHint: "upper-left area of the workspace panel",
+				value: "real grounding flow",
+			});
+			expect(typeResult.status.code).toBe("action_sent");
+			expect(typeResult.details?.grounding_provider).toEqual(expect.stringContaining("openai"));
+			await expect.poll(async () => page.inputValue("#input-field")).toBe("real grounding flow");
+
+			const dragResult = await runtime.drag({
+				app: browserAppName,
+				fromTarget: "Puzzle slider thumb",
+				toTarget: "Puzzle completion marker",
+				fromScope: "Workspace panel",
+				toScope: "Workspace panel",
+				fromLocationHint: "left side of the slider track",
+				toLocationHint: "right side of the slider track",
+				captureMode: "display",
+				durationMs: 700,
+			});
+			expect(dragResult.status.code).toBe("action_sent");
+			expect(dragResult.details?.grounding_provider).toEqual(expect.stringContaining("openai"));
+			await expect.poll(async () => page.textContent("#slider-status")).toBe("slider:solved");
 		},
 		REAL_GUI_GROUNDING_E2E_TIMEOUT_MS,
 	);

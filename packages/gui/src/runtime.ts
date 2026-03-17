@@ -41,10 +41,11 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_WAIT_TIMEOUT_MS = 8_000;
 const DEFAULT_WAIT_INTERVAL_MS = 350;
 const DEFAULT_DRAG_DURATION_MS = 450;
-const DEFAULT_DRAG_STEPS = 18;
+const DEFAULT_DRAG_STEPS = 24;
 const DEFAULT_HOVER_SETTLE_MS = 200;
 const DEFAULT_POST_ACTION_CAPTURE_SETTLE_MS = 3_000;
 const DEFAULT_CLICK_AND_HOLD_MS = 650;
+const DEFAULT_TYPE_FOCUS_SETTLE_MS = 180;
 const DEFAULT_SCROLL_AMOUNT = 5;
 const DEFAULT_TARGETED_SCROLL_DISTANCE: GuiScrollDistance = "medium";
 const DEFAULT_TARGETLESS_SCROLL_DISTANCE: GuiScrollDistance = "page";
@@ -604,6 +605,20 @@ function describeGuiTarget(params: {
 		return `"${normalizedTarget}"`;
 	}
 	return params.fallback ?? "the GUI target";
+}
+
+function defaultGroundingModeForAction(
+	action: GuiGroundingActionIntent | undefined,
+): GuiGroundingMode | undefined {
+	switch (action) {
+		case "type":
+		case "drag_source":
+		case "drag_destination":
+		case "wait":
+			return "complex";
+		default:
+			return undefined;
+	}
 }
 
 function createGroundingResolution(result: GuiGroundingResult): GuiResolution {
@@ -1537,7 +1552,7 @@ export class ComputerUseGuiRuntime {
 		const provider = this.requireGroundingProvider();
 		const groundingMode: GuiGroundingMode | undefined = params.groundingMode
 			? normalizeGuiGroundingMode(params.groundingMode)
-			: undefined;
+			: defaultGroundingModeForAction(params.action);
 		const grounded = await provider.ground({
 			imagePath: params.artifact.filePath,
 			logicalImageWidth: params.artifact.metadata.captureRect.width,
@@ -1637,13 +1652,16 @@ export class ComputerUseGuiRuntime {
 
 		while (Date.now() <= deadline) {
 			attempts += 1;
-				const artifact = await captureScreenshotArtifact({
-					appName: params.appName,
-					captureMode: params.captureMode,
-					activateApp: params.activateApp,
-					windowTitle: params.windowTitle,
-					windowSelector: params.windowSelector,
-				});
+			const attemptCaptureMode =
+				params.captureMode ??
+				(attempts > 1 && params.appName ? "display" : undefined);
+			const artifact = await captureScreenshotArtifact({
+				appName: params.appName,
+				captureMode: attemptCaptureMode,
+				activateApp: params.activateApp,
+				windowTitle: params.windowTitle,
+				windowSelector: params.windowSelector,
+			});
 			try {
 				lastCapture = artifact.metadata;
 				lastImage = screenshotArtifactToImage(artifact);
@@ -2134,7 +2152,7 @@ export class ComputerUseGuiRuntime {
 					source.point,
 					destination.point,
 					Math.max(100, params.durationMs ?? DEFAULT_DRAG_DURATION_MS),
-					{ activateApp: false },
+					{ activateApp: true },
 				);
 				const evidence = await this.captureEvidenceImage({
 					appName,
@@ -2322,9 +2340,9 @@ export class ComputerUseGuiRuntime {
 				await artifact.cleanup();
 			}
 			await performPointClick(appName, grounded.point, {
-				activateApp: false,
+				activateApp: true,
 			});
-			await new Promise((resolve) => setTimeout(resolve, 120));
+			await new Promise((resolve) => setTimeout(resolve, DEFAULT_TYPE_FOCUS_SETTLE_MS));
 		}
 
 			const action = await performType({ ...params, app: appName });

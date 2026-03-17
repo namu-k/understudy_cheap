@@ -1031,16 +1031,24 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 		expect(ground.mock.calls[0]?.[0]).toMatchObject({
 			action: "drag_source",
+			groundingMode: "complex",
 			relatedTarget: "Done column",
 			relatedScope: undefined,
 			relatedAction: "drag_destination",
 		});
 		expect(ground.mock.calls[1]?.[0]).toMatchObject({
 			action: "drag_destination",
+			groundingMode: "complex",
 			relatedTarget: "Card A",
 			relatedAction: "drag_source",
 			relatedPoint: { x: 132, y: 244 },
 		});
+		const dragCall = mocks.execCalls.find((call) =>
+			call.file === MOCK_NATIVE_HELPER_PATH &&
+			call.args[0] === "event" &&
+			call.env.UNDERSTUDY_GUI_EVENT_MODE === "drag",
+		);
+		expect(dragCall?.env.UNDERSTUDY_GUI_ACTIVATE_APP).toBe("1");
 	});
 
 	it("uses display capture for cross-window drag targets and propagates destination hints", async () => {
@@ -1188,8 +1196,18 @@ describe("ComputerUseGuiRuntime", () => {
 			action_kind: "typed",
 			executed_point: { x: expect.any(Number), y: expect.any(Number) },
 		});
+		expect(ground.mock.calls[0]?.[0]).toMatchObject({
+			action: "type",
+			groundingMode: "complex",
+		});
 		expect(mocks.execCalls.map((call) => call.file)).toContain(MOCK_NATIVE_HELPER_PATH);
 		expect(mocks.execCalls.map((call) => call.file)).toContain("osascript");
+		const focusClickCall = mocks.execCalls.find((call) =>
+			call.file === MOCK_NATIVE_HELPER_PATH &&
+			call.args[0] === "event" &&
+			call.env.UNDERSTUDY_GUI_EVENT_MODE === "click",
+		);
+		expect(focusClickCall?.env.UNDERSTUDY_GUI_ACTIVATE_APP).toBe("1");
 	});
 
 	it("sends hotkey actions", async () => {
@@ -1251,6 +1269,43 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 		expect(ground.mock.calls[0]?.[0]).toMatchObject({
 			action: "wait",
+			groundingMode: "complex",
+		});
+	});
+
+	it("falls back to display capture for later app-scoped wait probes when window probes keep missing", async () => {
+		const ground = vi.fn()
+			.mockResolvedValueOnce(undefined)
+			.mockResolvedValueOnce(undefined)
+			.mockResolvedValueOnce(groundedTarget("Finished badge", { x: 480, y: 220 }, 0.93))
+			.mockResolvedValueOnce(groundedTarget("Finished badge", { x: 481, y: 221 }, 0.94));
+		const runtime = createRuntime(ground);
+
+		const result = await runtime.wait({
+			app: "Safari",
+			target: "Finished badge",
+			timeoutMs: 50,
+			intervalMs: 0,
+		});
+
+		expect(result.status).toEqual({
+			code: "condition_met",
+			summary: "Target appeared.",
+		});
+		expect(ground.mock.calls[0]?.[0]).toMatchObject({
+			action: "wait",
+			groundingMode: "complex",
+			captureMode: "window",
+		});
+		expect(ground.mock.calls[1]?.[0]).toMatchObject({
+			action: "wait",
+			groundingMode: "complex",
+			captureMode: "display",
+		});
+		expect(ground.mock.calls[2]?.[0]).toMatchObject({
+			action: "wait",
+			groundingMode: "complex",
+			captureMode: "display",
 		});
 	});
 

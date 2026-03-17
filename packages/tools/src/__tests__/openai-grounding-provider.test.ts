@@ -97,6 +97,42 @@ describe("createOpenAIGroundingProvider", () => {
 		});
 	});
 
+	it("skips the validator round for observation-style wait grounding even in complex mode", async () => {
+		const imagePath = await createTestImage(1200, 800, "openai-wait-complex.png");
+		const fetchMock = createSequentialFetch([
+			'{"status":"resolved","found":true,"confidence":0.89,"reason":"matched status panel","coordinate_space":"image_pixels","bbox":{"x1":360,"y1":240,"x2":780,"y2":420}}',
+		]);
+		const simulationImageImpl = createSimulationImageImpl();
+		const provider = createOpenAIGroundingProvider({
+			apiKey: "test-key",
+			model: "gpt-5.4",
+			fetchImpl: fetchMock as unknown as typeof fetch,
+			simulationImageImpl,
+		});
+
+		const grounded = await provider.ground({
+			imagePath,
+			target: "Processing complete panel",
+			action: "wait",
+			groundingMode: "complex",
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(simulationImageImpl).not.toHaveBeenCalled();
+		expect(grounded).toMatchObject({
+			coordinateSpace: "image_pixels",
+			point: { x: 570, y: 330 },
+			raw: {
+				selected_attempt: "predicted",
+				grounding_selected_round: 1,
+				validation: {
+					status: "skipped",
+					reason: "observation grounding does not require simulated action validation",
+				},
+			},
+		});
+	});
+
 	it("grounds in model-space and maps the result back to the original screenshot", async () => {
 		const imagePath = await createTestImage(2000, 1000, "openai-large.png");
 		const fetchMock = createSequentialFetch([
@@ -388,11 +424,11 @@ describe("createOpenAIGroundingProvider", () => {
 
 		expect(grounded).toMatchObject({
 			coordinateSpace: "image_pixels",
-			point: { x: 420, y: 320 },
+			point: { x: 260, y: 320 },
 			raw: {
 				grounding_point_stabilized: true,
 				grounding_original_point: { x: 228, y: 320 },
-				grounding_stabilized_point: { x: 420, y: 320 },
+				grounding_stabilized_point: { x: 260, y: 320 },
 			},
 		});
 	});
@@ -462,7 +498,53 @@ describe("createOpenAIGroundingProvider", () => {
 		const predictionPrompt = extractPromptText((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.body);
 		expect(predictionPrompt).toContain("The resolved box must overlap the visible editable field or composer surface itself.");
 		expect(predictionPrompt).toContain("not the area above or below the field");
+		expect(predictionPrompt).toContain("prefer a safe point inside the left side of the editable interior");
 		expect(predictionPrompt).toContain("broad composer region but not the editable field itself");
+	});
+
+	it("keeps drag-source grounding focused on the actual press-and-hold surface", async () => {
+		const imagePath = await createTestImage(800, 600, "drag-source-guidance.png");
+		const fetchMock = createSequentialFetch([
+			'{"status":"resolved","found":true,"confidence":0.86,"reason":"matched slider thumb","coordinate_space":"image_pixels","click_point":{"x":320,"y":420},"bbox":{"x1":296,"y1":404,"x2":344,"y2":436}}',
+		]);
+		const provider = createOpenAIGroundingProvider({
+			apiKey: "test-key",
+			model: "gpt-5.4",
+			fetchImpl: fetchMock as unknown as typeof fetch,
+		});
+
+		await provider.ground({
+			imagePath,
+			target: "Puzzle slider thumb",
+			action: "drag_source",
+		});
+
+		const predictionPrompt = extractPromptText((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.body);
+		expect(predictionPrompt).toContain("Resolve the actual draggable surface itself");
+		expect(predictionPrompt).toContain("pressed and held");
+		expect(predictionPrompt).toContain("not on surrounding whitespace, the track");
+	});
+
+	it("keeps wait grounding focused on distinct visible indicators", async () => {
+		const imagePath = await createTestImage(800, 600, "wait-guidance.png");
+		const fetchMock = createSequentialFetch([
+			'{"status":"resolved","found":true,"confidence":0.84,"reason":"matched delayed badge","coordinate_space":"image_pixels","bbox":{"x1":320,"y1":180,"x2":420,"y2":220}}',
+		]);
+		const provider = createOpenAIGroundingProvider({
+			apiKey: "test-key",
+			model: "gpt-5.4",
+			fetchImpl: fetchMock as unknown as typeof fetch,
+		});
+
+		await provider.ground({
+			imagePath,
+			target: "Delayed badge",
+			action: "wait",
+		});
+
+		const predictionPrompt = extractPromptText((fetchMock.mock.calls[0]?.[1] as RequestInit | undefined)?.body);
+		expect(predictionPrompt).toContain("Choose the distinct visible indicator, badge, banner, row, panel, or content block");
+		expect(predictionPrompt).toContain("not distinctly visible yet, return status=\"not_found\"");
 	});
 
 	it("keeps icon-only grounding guidance generic and context-driven", async () => {
