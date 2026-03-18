@@ -30,6 +30,8 @@ export const BUILTIN_MODELS: Record<string, string[]> = {
 		"gemini-1.5-pro",
 	],
 	minimax: [
+		"MiniMax-M2.7",
+		"MiniMax-M2.7-highspeed",
 		"MiniMax-M2.5",
 		"MiniMax-M2.5-highspeed",
 	],
