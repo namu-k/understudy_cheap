@@ -182,7 +182,9 @@ describe("ComputerUseGuiRuntime", () => {
 				return {} as any;
 			}
 			if (file === "osascript") {
-				const stdout = env.UNDERSTUDY_GUI_TEXT !== undefined
+				const argvIndex = resolvedArgs.indexOf("--");
+				const typedText = argvIndex >= 0 ? resolvedArgs[argvIndex + 1] : undefined;
+				const stdout = typedText !== undefined || env.UNDERSTUDY_GUI_TEXT !== undefined
 					? "typed\n"
 					: env.UNDERSTUDY_GUI_KEY !== undefined || env.UNDERSTUDY_GUI_KEY_CODE !== undefined
 						? "key_event\n"
@@ -1308,16 +1310,37 @@ describe("ComputerUseGuiRuntime", () => {
 			UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS: "Draft",
 			UNDERSTUDY_GUI_WINDOW_INDEX: "2",
 		});
-		const typeCall = mocks.execCalls.find((call) => call.file === "osascript" && call.env.UNDERSTUDY_GUI_TEXT === "hello world");
-		expect(typeCall?.env).toMatchObject({
-			UNDERSTUDY_GUI_WINDOW_TITLE: "Draft 2",
-			UNDERSTUDY_GUI_WINDOW_BOUNDS_X: "140",
+			const typeCall = mocks.execCalls.find((call) =>
+				call.file === "osascript" &&
+				call.args.includes("--") &&
+				call.args.at(-1) === "hello world",
+			);
+			expect(typeCall?.env).toMatchObject({
+				UNDERSTUDY_GUI_WINDOW_TITLE: "Draft 2",
+				UNDERSTUDY_GUI_WINDOW_BOUNDS_X: "140",
 			UNDERSTUDY_GUI_WINDOW_BOUNDS_Y: "260",
 			UNDERSTUDY_GUI_WINDOW_BOUNDS_WIDTH: "520",
 			UNDERSTUDY_GUI_WINDOW_BOUNDS_HEIGHT: "360",
+			});
+			expect(typeCall?.env.UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS).toBeUndefined();
+			expect(typeCall?.env.UNDERSTUDY_GUI_WINDOW_INDEX).toBeUndefined();
+			expect(typeCall?.env.UNDERSTUDY_GUI_TEXT).toBeUndefined();
 		});
-		expect(typeCall?.env.UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS).toBeUndefined();
-		expect(typeCall?.env.UNDERSTUDY_GUI_WINDOW_INDEX).toBeUndefined();
+
+	it("passes non-ASCII text to osascript via argv so unicode input stays intact", async () => {
+		const runtime = createRuntime(vi.fn());
+
+		await runtime.type({
+			value: "你好，世界",
+		});
+
+		const typeCall = mocks.execCalls.find((call) =>
+			call.file === "osascript" &&
+			call.args.includes("--") &&
+			call.args.at(-1) === "你好，世界",
+		);
+		expect(typeCall?.env.UNDERSTUDY_GUI_TEXT).toBeUndefined();
+		expect(typeCall?.args.slice(-2)).toEqual(["--", "你好，世界"]);
 	});
 
 	it("sends key actions with modifiers", async () => {

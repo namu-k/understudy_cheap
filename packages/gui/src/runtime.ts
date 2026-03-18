@@ -729,10 +729,17 @@ function createScreenshotObservation(appName?: string, windowTitle?: string): Gu
 async function runAppleScript(
 	script: string,
 	env: Record<string, string | undefined>,
+	args: string[] = [],
 	timeoutMs: number = DEFAULT_TIMEOUT_MS,
 ): Promise<string> {
 	try {
-		const result = await execFileAsync("osascript", ["-l", "AppleScript", "-e", script], {
+		const result = await execFileAsync("osascript", [
+			"-l",
+			"AppleScript",
+			"-e",
+			script,
+			...(args.length > 0 ? ["--", ...args] : []),
+		], {
 			env: {
 				...process.env,
 				...env,
@@ -879,16 +886,15 @@ ${WINDOW_SELECTION_SCRIPT_HELPERS}
 set requestedApp to system attribute "UNDERSTUDY_GUI_APP"
 set requestedWindowTitle to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE"
 set requestedWindowTitleContains to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS"
-set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
-set requestedWindowBoundsX to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_X"
-set requestedWindowBoundsY to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_Y"
-set requestedWindowBoundsWidth to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_WIDTH"
-set requestedWindowBoundsHeight to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_HEIGHT"
-set inputText to system attribute "UNDERSTUDY_GUI_TEXT"
-set replaceText to system attribute "UNDERSTUDY_GUI_REPLACE"
-set submitText to system attribute "UNDERSTUDY_GUI_SUBMIT"
+	set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
+	set requestedWindowBoundsX to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_X"
+	set requestedWindowBoundsY to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_Y"
+	set requestedWindowBoundsWidth to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_WIDTH"
+	set requestedWindowBoundsHeight to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_HEIGHT"
+	set replaceText to system attribute "UNDERSTUDY_GUI_REPLACE"
+	set submitText to system attribute "UNDERSTUDY_GUI_SUBMIT"
 
-on pasteText(rawText)
+	on pasteText(rawText)
 	set previousClipboard to missing value
 	set hadClipboard to false
 	try
@@ -910,9 +916,11 @@ on pasteText(rawText)
 	end if
 end pasteText
 
-tell application "System Events"
-	if requestedApp is not "" then
-		if not (exists application process requestedApp) then error "Application process not found: " & requestedApp
+on run argv
+	set inputText to item 1 of argv
+	tell application "System Events"
+		if requestedApp is not "" then
+			if not (exists application process requestedApp) then error "Application process not found: " & requestedApp
 		set targetProc to application process requestedApp
 		set frontmost of targetProc to true
 		delay 0.1
@@ -924,10 +932,11 @@ tell application "System Events"
 	if replaceText is "1" then
 		keystroke "a" using command down
 	end if
-	my pasteText(inputText)
-	if submitText is "1" then key code 36
-	return "paste"
-end tell
+		my pasteText(inputText)
+		if submitText is "1" then key code 36
+		return "paste"
+	end tell
+end run
 `;
 
 const HOTKEY_SCRIPT = String.raw`
@@ -1351,10 +1360,9 @@ async function performType(params: GuiTypeParams): Promise<GuiNativeActionResult
 	const actionKind = await runAppleScript(TYPE_SCRIPT, {
 		UNDERSTUDY_GUI_APP: params.app?.trim(),
 		...buildScriptWindowSelectionEnv(windowSelection),
-		UNDERSTUDY_GUI_TEXT: params.value,
 		UNDERSTUDY_GUI_REPLACE: params.replace === false ? "0" : "1",
 		UNDERSTUDY_GUI_SUBMIT: params.submit ? "1" : "0",
-	});
+	}, [params.value]);
 	return { actionKind };
 }
 
