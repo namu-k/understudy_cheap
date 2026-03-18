@@ -31,6 +31,8 @@ export {
 	updateTaughtTaskDraft,
 	updatePersistedTaughtTaskDraft,
 	buildTaughtTaskDraftPromptContent,
+	extractTaughtTaskToolArgumentsFromRecord,
+	normalizeTaughtTaskToolArguments,
 } from "./task-drafts.js";
 export type {
 	BuildTaughtTaskDraftFromRunOptions,
@@ -57,6 +59,10 @@ export type {
 	TaughtTaskSkillDependency,
 	TaughtTaskStepRouteOption,
 	TaughtTaskDraftStep,
+	TaughtTaskToolArgumentObject,
+	TaughtTaskToolArgumentPrimitive,
+	TaughtTaskToolArgumentValue,
+	TaughtTaskToolArguments,
 	UpdatePersistedTaughtTaskDraftOptions,
 } from "./task-drafts.js";
 export {

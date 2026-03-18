@@ -74,7 +74,7 @@ Understudy is not just a GUI clicker. It's a unified desktop runtime that mixes 
 
 | Route | Implementation | What it covers |
 |-------|---------------|----------------|
-| **GUI** | 13 tools + screenshot grounding + native input | Any macOS desktop app |
+| **GUI** | 8 tools + screenshot grounding + native input | Any macOS desktop app |
 | **Browser** | Playwright managed + Chrome extension relay | Any website, with login sessions |
 | **Shell** | `bash` tool with full local access | CLI tools, scripts, file system |
 | **Web** | `web_search` + `web_fetch` | Real-time information retrieval |
@@ -301,7 +301,6 @@ understudy agent --message "..."  # Script/CI single-turn call (requires gateway
 | Chrome | [chrome.google.com](https://www.google.com/chrome/) | Extension-relay browser mode — access logged-in tabs. Without it, falls back to Playwright managed browser |
 | Playwright | `pnpm exec playwright install chromium` | Managed browser for the `browser` tool. Installed as optional dependency, needs browser binary download |
 | ffmpeg + ffprobe | `brew install ffmpeg` | Video analysis for teach-by-demonstration evidence packs |
-| tesseract | `brew install tesseract` | On-device OCR for `vision_read`. Without it, OCR is skipped gracefully |
 | signal-cli | `brew install signal-cli` | Signal messaging channel |
 
 ## Platform Support
@@ -341,9 +340,9 @@ Full screenshot-grounded GUI automation on macOS depends on the native helper pl
 
 ### Accessibility
 
-**What it enables:** Mouse clicks, typing, drag, scroll, hotkeys against app targets, and demonstration event capture.
+**What it enables:** Mouse clicks, typing, drag, scroll, key presses/shortcuts, absolute cursor moves, and demonstration event capture.
 
-**If missing:** Input-driving tools are blocked. Observation-oriented tools such as screenshots and GUI reads may still work when Screen Recording is available.
+**If missing:** Input-driving tools are blocked. Observation-oriented tools such as `gui_observe` may still work when Screen Recording is available.
 
 **How to grant:**
 
@@ -353,9 +352,9 @@ Full screenshot-grounded GUI automation on macOS depends on the native helper pl
 
 ### Screen Recording
 
-**What it enables:** Screenshots for GUI grounding and verification, screenshot-based reads, and demonstration video recording.
+**What it enables:** Screenshot capture for `gui_observe`, GUI grounding/verification, and demonstration video recording.
 
-**If missing:** Screenshot-grounded tools are blocked. Keyboard-only tools such as `gui_keypress` and `gui_hotkey` can still remain available, and some tools can still operate in targetless mode.
+**If missing:** Screenshot-grounded tools are blocked. Keyboard/input-only routes such as `gui_key` and `gui_move` still remain available, while `gui_scroll` and `gui_type` can still operate in targetless mode.
 
 **How to grant:**
 
@@ -366,7 +365,7 @@ Full screenshot-grounded GUI automation on macOS depends on the native helper pl
 
 > Both permissions must be granted to the terminal application that runs `understudy`, not to Understudy itself.
 >
-> If GUI behavior still looks partial after granting permissions, run `understudy doctor --deep` to check the native helper, grounding availability, OCR, browser runtime, and teach-analysis dependencies.
+> If GUI behavior still looks partial after granting permissions, run `understudy doctor --deep` to check the native helper, grounding availability, browser runtime, and teach-analysis dependencies.
 
 ## Skills
 

@@ -22,7 +22,7 @@ First public release of the Understudy runtime.
 
 ### Added
 
-- **GUI Runtime**: 13 native GUI tools (`gui_click`, `gui_type`, `gui_hotkey`, `gui_drag`, etc.) with screenshot-grounded target resolution on macOS. Graceful degradation when grounding or permissions are unavailable.
+- **GUI Runtime**: Native GUI toolset (`gui_observe`, `gui_click`, `gui_drag`, `gui_scroll`, `gui_type`, `gui_key`, `gui_wait`, `gui_move`) with screenshot-grounded target resolution on macOS. Graceful degradation when grounding or permissions are unavailable.
 - **Browser Automation**: Playwright managed mode and Chrome extension relay for logged-in tabs.
 - **Teach-by-Demonstration**: `/teach start` → record → `/teach stop` → video-first evidence analysis → clarification dialogue → replay validation → publish as workspace skill.
 - **Gateway Server**: HTTP + WebSocket + JSON-RPC gateway (default port 23333) with session runtime, policy pipeline, and handler registry.

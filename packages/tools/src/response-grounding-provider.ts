@@ -529,7 +529,13 @@ function parseCoordinateSpace(value: string | undefined): GuiGroundingCoordinate
 	if (value === undefined) {
 		return "image_pixels";
 	}
-	return value === "image_pixels" ? "image_pixels" : undefined;
+	if (value === "image_pixels") {
+		return "image_pixels";
+	}
+	if (value === "display_pixels") {
+		return value as GuiGroundingCoordinateSpace;
+	}
+	return undefined;
 }
 
 function parseGroundingBox(
@@ -773,6 +779,12 @@ function describeRelatedGroundingContext(params: {
 
 function actionSpecificGroundingInstructions(action: GuiGroundingActionIntent | undefined): string[] {
 	switch (action) {
+		case "observe":
+			return [
+				"Resolve the visible element or content region that should be inspected.",
+				"The bbox should cover the observable target itself, not surrounding whitespace, wallpaper, or generic container chrome.",
+				"If the requested target is only implied by nearby labels but the visual element itself is not visible, return status=\"not_found\".",
+			];
 		case "click":
 		case "right_click":
 		case "double_click":
@@ -786,15 +798,22 @@ function actionSpecificGroundingInstructions(action: GuiGroundingActionIntent | 
 				"Return an explicit click_point for the exact actionable surface; do not rely on bbox-only answers.",
 			];
 		case "drag_source":
+			return [
+				"Resolve the actual draggable surface itself, such as the slider thumb, drag handle, card body, file icon, or selected chip that should be pressed and held.",
+				"Choose a click_point on the visible press-and-hold surface that should initiate the drag, not on surrounding whitespace, the track, or generic container background.",
+				"If you can identify only a broad region or container but not the actual draggable source surface, return status=\"not_found\".",
+			];
 		case "drag_destination":
 			return [
-				"Resolve the draggable or droppable surface itself, not surrounding whitespace or generic container background.",
-				"If you can identify only a broad region or container but not the actual drag source/destination surface, return status=\"not_found\".",
+				"Resolve the actual droppable target surface where release should occur, such as the slot, drop zone, list gap, container interior, or destination icon itself.",
+				"Choose a click_point on the release surface itself, not on surrounding whitespace, the margin around a drop zone, or a nearby label.",
+				"If you can identify only a broad region or container but not the actual drag destination surface, return status=\"not_found\".",
 			];
 		case "type":
 			return [
 				"The resolved box must overlap the visible editable field or composer surface itself.",
 				"For text entry, target the editable interior where the caret should appear, not the area above or below the field and not surrounding toolbar, wallpaper, or container background.",
+				"For empty or single-line fields, prefer a safe point inside the left side of the editable interior where a caret would normally appear, not the visual center of the whole field.",
 				"For large text areas or code editors, target the text content area where typing should occur.",
 				"If you can identify only the broad composer region but not the editable field itself, return status=\"not_found\" instead of guessing.",
 				"Return an explicit click_point inside the editable interior.",
@@ -808,9 +827,13 @@ function actionSpecificGroundingInstructions(action: GuiGroundingActionIntent | 
 		case "wait":
 			return [
 				"Resolve the visual element whose presence or absence is being monitored.",
-				"The bbox should cover the observable indicator or content area.",
+				"Choose the distinct visible indicator, badge, banner, row, panel, or content block whose state is changing, not a vague surrounding container.",
+				"The bbox should cover the observable indicator or content area itself, not surrounding whitespace or generic layout chrome.",
+				"If the requested target is not distinctly visible yet, return status=\"not_found\" instead of guessing a likely region.",
 			];
-	default:
+		case "key":
+		case "move":
+		default:
 			return [];
 	}
 }
@@ -826,6 +849,11 @@ function actionRequiresExplicitPoint(action: GuiGroundingActionIntent | undefine
 		case "drag_destination":
 		case "type":
 			return true;
+		case "observe":
+		case "scroll":
+		case "wait":
+		case "key":
+		case "move":
 		default:
 			return false;
 	}
@@ -973,18 +1001,43 @@ function stabilizeGroundingPoint(params: {
 		case "double_click":
 		case "hover":
 		case "click_and_hold":
+		case "drag_source":
+		case "drag_destination":
 			break;
 		case "type": {
 			const safeInsetX = Math.max(8, Math.min(32, params.box.width * 0.18));
 			const safeInsetY = Math.max(6, Math.min(18, params.box.height * 0.2));
+			const minX = params.box.x + safeInsetX;
+			const maxX = params.box.x + params.box.width - safeInsetX;
+			const minY = params.box.y + safeInsetY;
+			const maxY = params.box.y + params.box.height - safeInsetY;
 			const insideSafeInterior =
-				params.point.x >= params.box.x + safeInsetX &&
-				params.point.x <= params.box.x + params.box.width - safeInsetX &&
-				params.point.y >= params.box.y + safeInsetY &&
-				params.point.y <= params.box.y + params.box.height - safeInsetY;
-			return insideSafeInterior ? { point: params.point, stabilized: false } : { point: center, stabilized: true };
+				params.point.x >= minX &&
+				params.point.x <= maxX &&
+				params.point.y >= minY &&
+				params.point.y <= maxY;
+			const preferredX = Math.max(minX, Math.min(maxX, params.box.x + Math.max(safeInsetX, Math.min(40, params.box.width * 0.2))));
+			const preferredY = Math.max(minY, Math.min(maxY, center.y));
+			const alreadyLeftBiased =
+				insideSafeInterior &&
+				params.point.x <= params.box.x + (params.box.width * 0.45);
+			if (alreadyLeftBiased) {
+				return { point: params.point, stabilized: false };
+			}
+			return {
+				point: {
+					x: preferredX,
+					y: preferredY,
+				},
+				stabilized: true,
+			};
 		}
-			default:
+		case "observe":
+		case "scroll":
+		case "wait":
+		case "key":
+		case "move":
+		default:
 			return { point: params.point, stabilized: false };
 	}
 	const smallControl =
@@ -1299,6 +1352,16 @@ function toPublicPredictedGroundingResult(result: GroundingResolvedAttempt, skip
 function shouldValidateResolvedCandidate(params: {
 	request: GuiGroundingRequest;
 }): { required: boolean; reason: string } {
+	switch (params.request.action) {
+		case "observe":
+		case "wait":
+			return {
+				required: false,
+				reason: "observation grounding does not require simulated action validation",
+			};
+		default:
+			break;
+	}
 	if (params.request.groundingMode === "complex") {
 		return { required: true, reason: "complex grounding was explicitly requested" };
 	}

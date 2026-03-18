@@ -8,6 +8,9 @@ import {
 	type TaughtTaskProcedureStep,
 	type TaughtTaskSkillDependency,
 	type TaughtTaskStepRouteOption,
+	type TaughtTaskToolArguments,
+	extractTaughtTaskToolArgumentsFromRecord,
+	normalizeTaughtTaskToolArguments,
 } from "@understudy/core";
 import type { UnderstudyConfig } from "@understudy/types";
 import { execFile } from "node:child_process";
@@ -67,8 +70,39 @@ export interface VideoTeachStep {
 	groundingMode?: "single" | "complex";
 	locationHint?: string;
 	windowTitle?: string;
+	toolArgs?: TaughtTaskToolArguments;
 	verificationSummary?: string;
 	uncertain?: boolean;
+}
+
+const VIDEO_TEACH_STEP_RESERVED_KEYS = new Set([
+	"route",
+	"toolName",
+	"instruction",
+	"summary",
+	"target",
+	"app",
+	"scope",
+	"inputs",
+	"captureMode",
+	"groundingMode",
+	"locationHint",
+	"windowTitle",
+	"toolArgs",
+	"verificationSummary",
+	"uncertain",
+]);
+
+function extractVideoTeachStepToolArgs(record: Record<string, unknown>): TaughtTaskToolArguments | undefined {
+	const explicit = normalizeTaughtTaskToolArguments(record.toolArgs);
+	const implicit = extractTaughtTaskToolArgumentsFromRecord(record, VIDEO_TEACH_STEP_RESERVED_KEYS);
+	if (!explicit && !implicit) {
+		return undefined;
+	}
+	return {
+		...(implicit ?? {}),
+		...(explicit ?? {}),
+	};
 }
 
 export interface DemonstrationEvent {
@@ -350,21 +384,25 @@ function normalizeToolName(
 	const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
 	const aliases = new Map<string, string>([
 		["click", "gui_click"],
-		["right_click", "gui_right_click"],
-		["rightclick", "gui_right_click"],
-		["context_click", "gui_right_click"],
-		["double_click", "gui_double_click"],
-		["doubleclick", "gui_double_click"],
-		["hover", "gui_hover"],
-		["click_and_hold", "gui_click_and_hold"],
-		["clickandhold", "gui_click_and_hold"],
-		["long_press", "gui_click_and_hold"],
+		["right_click", "gui_click"],
+		["rightclick", "gui_click"],
+		["context_click", "gui_click"],
+		["double_click", "gui_click"],
+		["doubleclick", "gui_click"],
+		["hover", "gui_click"],
+		["click_and_hold", "gui_click"],
+		["clickandhold", "gui_click"],
+		["long_press", "gui_click"],
 		["drag", "gui_drag"],
 		["scroll", "gui_scroll"],
 		["type", "gui_type"],
-		["keypress", "gui_keypress"],
-		["hotkey", "gui_hotkey"],
-		["screenshot", "gui_screenshot"],
+		["keypress", "gui_key"],
+		["hotkey", "gui_key"],
+		["key", "gui_key"],
+		["screenshot", "gui_observe"],
+		["read", "gui_observe"],
+		["observe", "gui_observe"],
+		["move", "gui_move"],
 		["wait", "gui_wait"],
 		["terminal", "bash"],
 		["shell", "bash"],
@@ -424,25 +462,27 @@ function normalizeSteps(
 		const toolName = normalizeToolName(asString(record?.toolName), options.availableToolNames);
 		if (!instruction || !toolName) {
 			continue;
-		}
-		const captureMode = asString(record?.captureMode);
-		const groundingMode = asString(record?.groundingMode);
-		steps.push({
-			route: normalizeRoute(toolName, asString(record?.route), options.toolRoutes),
-			toolName,
-			instruction,
+			}
+			const captureMode = asString(record?.captureMode);
+			const groundingMode = asString(record?.groundingMode);
+			const toolArgs = record ? extractVideoTeachStepToolArgs(record) : undefined;
+			steps.push({
+				route: normalizeRoute(toolName, asString(record?.route), options.toolRoutes),
+				toolName,
+				instruction,
 			summary: asString(record?.summary),
 			target: asString(record?.target),
 			app: asString(record?.app),
 			scope: asString(record?.scope),
 			inputs: normalizeStringMap(record?.inputs),
-			...(captureMode === "window" || captureMode === "display" ? { captureMode } : {}),
-			...(groundingMode === "single" || groundingMode === "complex" ? { groundingMode } : {}),
-			...(asString(record?.locationHint) ? { locationHint: asString(record?.locationHint) } : {}),
-			...(asString(record?.windowTitle) ? { windowTitle: asString(record?.windowTitle) } : {}),
-			verificationSummary: asString(record?.verificationSummary),
-			uncertain: record?.uncertain === true,
-		});
+				...(captureMode === "window" || captureMode === "display" ? { captureMode } : {}),
+				...(groundingMode === "single" || groundingMode === "complex" ? { groundingMode } : {}),
+				...(asString(record?.locationHint) ? { locationHint: asString(record?.locationHint) } : {}),
+				...(asString(record?.windowTitle) ? { windowTitle: asString(record?.windowTitle) } : {}),
+				...(toolArgs ? { toolArgs } : {}),
+				verificationSummary: asString(record?.verificationSummary),
+				uncertain: record?.uncertain === true,
+			});
 	}
 	return steps.slice(0, 20);
 }
@@ -1764,7 +1804,9 @@ function buildPrompt(params: {
 			'Set captureMode to "display" for desktop-wide surfaces (menu bar, Dock, cross-window drags) and "window" for in-app work.',
 			'Set groundingMode to "complex" for dense UIs (spreadsheets, code editors) or when multiple similar controls are visible.',
 			"For gui_scroll targets, name the scrollable container, not a heading within it.",
-			"For gui_keypress, use key names like Enter, Tab, Escape, Space, Delete, ArrowDown. For modifier combos, use gui_hotkey.",
+			'For hover-only interactions, use gui_click with button: "none" instead of gui_move.',
+			"For gui_key, use key names like Enter, Tab, Escape, Space, Delete, ArrowDown. For modifier combos, also use gui_key.",
+			"Preserve exact replay-only tool parameters such as button, clicks, holdMs, windowSelector, fromTarget/toTarget, wait state, repeat, and modifiers inside steps[].toolArgs instead of dropping them.",
 			"",
 			"Your first decision is taskKind. Choose exactly one: fixed_demo, parameterized_workflow, or batch_workflow.",
 			"If taskKind is fixed_demo, parameterSlots must be empty and taskCard.inputs must be empty. Keep the exact demonstrated objective rather than inventing reusable parameters.",
@@ -1778,7 +1820,7 @@ function buildPrompt(params: {
 			"Use preference=preferred for the best route, fallback for a backup route, and observed for what the demo literally showed.",
 			"Remove recording-control noise such as returning to Understudy, typing `/teach stop`, or handling Ctrl+C unless the user hint explicitly says those actions are part of the task.",
 			"When possible, output a reusable task card, a semantic high-level procedure, replay preconditions, reset signals, and references to existing workspace skill dependencies rather than only low-level UI steps.",
-			'Schema: {"title":"...","objective":"...","summary":"...","taskKind":"fixed_demo|parameterized_workflow|batch_workflow","parameterSlots":[{"name":"...","label":"...","sampleValue":"...","required":true,"notes":"..."}],"successCriteria":["..."],"openQuestions":["..."],"replayPreconditions":["..."],"resetSignals":["..."],"taskCard":{"goal":"...","scope":"...","loopOver":"...","inputs":["..."],"extract":["..."],"formula":"...","filter":"...","output":"..."},"procedure":[{"instruction":"...","kind":"navigate|extract|transform|filter|output|skill|check","skillName":"optional-skill-name","notes":"...","uncertain":false}],"executionPolicy":{"toolBinding":"adaptive|fixed","preferredRoutes":["skill","browser","shell","gui"],"stepInterpretation":"evidence|fallback_replay|strict_contract","notes":["..."]},"stepRouteOptions":[{"procedureStepId":"procedure-1","route":"skill|browser|shell|gui","preference":"preferred|fallback|observed","instruction":"...","toolName":"exact-available-tool-name","skillName":"optional-skill-name","when":"...","notes":"..."}],"skillDependencies":[{"name":"...","reason":"...","required":true}],"steps":[{"route":"gui|browser|shell|web|workspace|memory|messaging|automation|system|custom","toolName":"exact-available-tool-name","instruction":"...","summary":"...","target":"...","app":"...","scope":"...","locationHint":"...","windowTitle":"...","captureMode":"window|display","groundingMode":"single|complex","inputs":{"key":"value"},"verificationSummary":"...","uncertain":false}]}',
+			'Schema: {"title":"...","objective":"...","summary":"...","taskKind":"fixed_demo|parameterized_workflow|batch_workflow","parameterSlots":[{"name":"...","label":"...","sampleValue":"...","required":true,"notes":"..."}],"successCriteria":["..."],"openQuestions":["..."],"replayPreconditions":["..."],"resetSignals":["..."],"taskCard":{"goal":"...","scope":"...","loopOver":"...","inputs":["..."],"extract":["..."],"formula":"...","filter":"...","output":"..."},"procedure":[{"instruction":"...","kind":"navigate|extract|transform|filter|output|skill|check","skillName":"optional-skill-name","notes":"...","uncertain":false}],"executionPolicy":{"toolBinding":"adaptive|fixed","preferredRoutes":["skill","browser","shell","gui"],"stepInterpretation":"evidence|fallback_replay|strict_contract","notes":["..."]},"stepRouteOptions":[{"procedureStepId":"procedure-1","route":"skill|browser|shell|gui","preference":"preferred|fallback|observed","instruction":"...","toolName":"exact-available-tool-name","skillName":"optional-skill-name","when":"...","notes":"..."}],"skillDependencies":[{"name":"...","reason":"...","required":true}],"steps":[{"route":"gui|browser|shell|web|workspace|memory|messaging|automation|system|custom","toolName":"exact-available-tool-name","instruction":"...","summary":"...","target":"...","app":"...","scope":"...","locationHint":"...","windowTitle":"...","captureMode":"window|display","groundingMode":"single|complex","inputs":{"key":"value"},"toolArgs":{"button":"right","windowSelector":{"titleContains":"Draft"}},"verificationSummary":"...","uncertain":false}]}',
 			"If the demonstration leaves gaps, record them in openQuestions and mark the affected step uncertain=true.",
 		].join("\n");
 	}

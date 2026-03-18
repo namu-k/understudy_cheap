@@ -44,11 +44,11 @@ Create a background-removed image for a requested person or image query, preserv
 The GUI reference path below is for replay and grounding reference only.
 
 1. Use Google Chrome on the desktop to focus the image search page, enter the requested query, submit it, and open the first original image result.
-   reference: [observed] [gui/gui_click] | when: When following the demonstrated desktop route or when browser control is unavailable. | notes: Use gui_type and gui_keypress as needed.
+   reference: [observed] [gui/gui_click] | when: When following the demonstrated desktop route or when browser control is unavailable. | notes: Use gui_type and gui_key as needed.
 2. Use the visible browser page or source image view to download the image and save it with an appropriate filename.
    reference: [observed] [gui/gui_click] | when: When following the observed replay path. | notes: The user clarified that the first original image should be opened, downloaded, and saved with an appropriate filename.
 3. Open the downloaded image in Pixelmator Pro and use the top menu path Edit > Remove Background.
-   reference: [preferred] [gui/gui_click] | when: When editing in the native desktop app. | notes: Use gui_read or gui_wait as needed to confirm the editor state and background-removal result. | target: menu item "Edit" in the macOS top menu bar, then menu item "Remove Background" | app: Pixelmator Pro | scope: macOS top menu bar and Pixelmator Pro editor window
+   reference: [preferred] [gui/gui_click] | when: When editing in the native desktop app. | notes: Use gui_observe or gui_wait as needed to confirm the editor state and background-removal result. | target: menu item "Edit" in the macOS top menu bar, then menu item "Remove Background" | app: Pixelmator Pro | scope: macOS top menu bar and Pixelmator Pro editor window
 4. Export the edited image with a filename ending in " without background" while preserving transparency as-is.
    reference: [preferred] [gui/gui_click] | when: When saving the final deliverable from Pixelmator Pro. | notes: Use a distinct filename to avoid conflicts with the downloaded source image. | target: visible export or save control, then the filename field showing the edited output name | app: Pixelmator Pro | scope: editor window and export/save dialog
 5. Open Telegram, go to the requested chat, attach the exported image, and send it.
@@ -64,7 +64,7 @@ These route options are references only. Choose the best route at runtime based 
      Notes: Best balance of speed and verification for discovery and source selection.
    - [observed] [gui/gui_click] Use Google Chrome on the desktop to focus the image search page, enter the requested query, submit it, and open the first original image result.
      When: When following the demonstrated desktop route or when browser control is unavailable.
-     Notes: Use gui_type and gui_keypress as needed.
+     Notes: Use gui_type and gui_key as needed.
 2. Download the opened image locally and save it with an appropriate filename.
    - [preferred] [browser/browser] Download the opened original image from the browser into Downloads and save it with an appropriate filename.
      When: When the browser session can save files directly.
@@ -78,7 +78,7 @@ These route options are references only. Choose the best route at runtime based 
 3. Open the saved image in Pixelmator Pro and run Edit > Remove Background to isolate the subject.
    - [preferred] [gui/gui_click] Open the downloaded image in Pixelmator Pro and use the top menu path Edit > Remove Background.
      When: When editing in the native desktop app.
-     Notes: Use gui_read or gui_wait as needed to confirm the editor state and background-removal result.
+     Notes: Use gui_observe or gui_wait as needed to confirm the editor state and background-removal result.
 4. Export the edited file with a filename ending in " without background" while preserving transparency as-is.
    - [preferred] [gui/gui_click] Export the edited image with a filename ending in " without background" while preserving transparency as-is.
      When: When saving the final deliverable from Pixelmator Pro.
@@ -181,7 +181,7 @@ Use these structured step details as fallback replay hints when a higher-level r
 
 ## Failure Policy
 
-- Use `gui_read` before each `gui_click`/`gui_type` to confirm the target is visible on the current surface.
+- Use `gui_observe` before each `gui_click`/`gui_type` to confirm the target is visible on the current surface.
 - Use `groundingMode: "complex"` after any grounding failure or when the UI is dense/ambiguous.
 - Use `captureMode: "display"` for menu bar, Dock, or cross-window operations; `captureMode: "window"` for in-app work.
 - Describe targets using visible text labels from the current screenshot, not memorized positions from the teach recording.

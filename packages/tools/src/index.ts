@@ -48,19 +48,14 @@ export {
 	setDefaultGuiRuntime,
 	createGuiToolset,
 	listGuiToolCatalog,
-	createGuiReadTool,
+	createGuiObserveTool,
 	createGuiClickTool,
-	createGuiRightClickTool,
-	createGuiDoubleClickTool,
-	createGuiHoverTool,
-	createGuiClickAndHoldTool,
 	createGuiDragTool,
 	createGuiScrollTool,
 	createGuiTypeTool,
-	createGuiKeypressTool,
-	createGuiHotkeyTool,
-	createGuiScreenshotTool,
+	createGuiKeyTool,
 	createGuiWaitTool,
+	createGuiMoveTool,
 } from "./gui-tools.js";
 export type { GuiToolCatalogEntry } from "./gui-tools.js";
 export {

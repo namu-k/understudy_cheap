@@ -45,7 +45,7 @@ import {
 	type RuntimeProfile,
 } from "./identity-policy.js";
 import { applySystemPromptOverrideToSession } from "./system-prompt-override.js";
-import { buildPreflightPromptContent, runRuntimePreflight } from "./preflight.js";
+import { runRuntimePreflight } from "./preflight.js";
 import {
 	wrapToolsWithWatchdog,
 } from "./tool-watchdog.js";
@@ -552,7 +552,8 @@ export async function createUnderstudySessionWithRuntime(
 		},
 		getSessionMeta: () => sessionMetaRef,
 	});
-	const customToolDefs: RuntimeToolDefinition[] = traceWrappedTools.map(agentToolToDefinition);
+	const exposedTools = traceWrappedTools.filter((tool) => preflight.enabledToolNames.includes(tool.name));
+	const customToolDefs: RuntimeToolDefinition[] = exposedTools.map(agentToolToDefinition);
 
 	const resolvedThinkingLevel =
 		opts.thinkingLevel ??
@@ -605,7 +606,7 @@ export async function createUnderstudySessionWithRuntime(
 	});
 
 	// Build dynamic tool summaries from AgentTool descriptions
-	const toolSummaries = buildToolSummaryMap(policyWrappedTools);
+	const toolSummaries = buildToolSummaryMap(exposedTools);
 
 	// Load project context files (SOUL.md, AGENTS.md, etc.)
 	const contextFiles = loadContextFiles(cwd, config.agent.contextFiles);
@@ -658,10 +659,6 @@ export async function createUnderstudySessionWithRuntime(
 			{
 				title: "Runtime Profile",
 				content: `profile=${runtimeProfile}`,
-			},
-			{
-				title: "Runtime Preflight",
-				content: buildPreflightPromptContent(preflight),
 			},
 			...(modelFallbackSection
 				? [

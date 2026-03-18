@@ -1472,12 +1472,12 @@ describe("GatewayServer", () => {
 				sessionId: "session_progress_media",
 				progress: {
 					stage: "tool",
-					toolName: "gui_screenshot",
+					toolName: "gui_observe",
 					route: "gui",
 					summary: "Capturing screenshot.",
 					latestToolResult: {
 						toolCallId: "tool-progress-1",
-						toolName: "gui_screenshot",
+						toolName: "gui_observe",
 						route: "gui",
 						textPreview: "Captured a GUI screenshot.",
 						images: [
@@ -1579,7 +1579,7 @@ describe("GatewayServer", () => {
 				sessionId: "session_progress_dedupe",
 				progress: {
 					stage: "tool",
-					toolName: "gui_screenshot",
+					toolName: "gui_observe",
 					route: "gui",
 					summary: "Capturing screenshot.",
 					latestToolResult: {

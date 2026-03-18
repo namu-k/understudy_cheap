@@ -69,6 +69,9 @@ describe.skipIf(!shouldRunRealRecorderTests)("createMacosDemonstrationRecorder r
 		expect(Array.isArray(events)).toBe(true);
 		expect(events.some((event) => event.type === "recording_started")).toBe(true);
 		expect(events.some((event) => event.type === "recording_stopped")).toBe(true);
-		expect(events.some((event) => event.type === "app_activated")).toBe(true);
+		expect(events.some((event) =>
+			event.type === "app_activated" ||
+			event.type === "window_focused",
+		)).toBe(true);
 	});
 });

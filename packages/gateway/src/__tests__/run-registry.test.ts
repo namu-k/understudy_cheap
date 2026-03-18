@@ -135,7 +135,7 @@ describe("GatewayRunRegistry", () => {
 		});
 		registry.emitToolEvent("session_img", {
 			phase: "finish",
-			toolName: "gui_screenshot",
+			toolName: "gui_observe",
 			toolCallId: "tool_img",
 			route: "gui",
 			params: {},
@@ -162,10 +162,10 @@ describe("GatewayRunRegistry", () => {
 				runId: "run_img",
 				sessionId: "session_img",
 				toolCallId: "tool_img",
-				toolName: "gui_screenshot",
+				toolName: "gui_observe",
 				route: "gui",
 				status: "ok",
-				summary: "Running screenshot.",
+				summary: "Inspecting the GUI.",
 				startedAt: 12,
 				endedAt: 25,
 				durationMs: 13,
@@ -186,7 +186,7 @@ describe("GatewayRunRegistry", () => {
 		expect(registry.getProgress("run_img")).toMatchObject({
 			latestToolResult: {
 				toolCallId: "tool_img",
-				toolName: "gui_screenshot",
+				toolName: "gui_observe",
 				route: "gui",
 				textPreview: "Captured a GUI screenshot.",
 				images: [

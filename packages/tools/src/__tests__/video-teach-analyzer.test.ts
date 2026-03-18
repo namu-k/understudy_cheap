@@ -226,15 +226,21 @@ copyFileSync(fixturePath, outputPath);
 								toolName: "gui_click",
 							},
 						],
-						steps: [
-							{
-								route: "gui",
-								toolName: "gui_click",
-								instruction: "Click the Publish button in the review pane.",
-								target: "Publish button",
-								verificationSummary: "Published confirmation appears.",
-							},
-						],
+							steps: [
+								{
+									route: "gui",
+									toolName: "gui_click",
+									instruction: "Click the Publish button in the review pane.",
+									target: "Publish button",
+									button: "right",
+									toolArgs: {
+										windowSelector: {
+											titleContains: "Review",
+										},
+									},
+									verificationSummary: "Published confirmation appears.",
+								},
+							],
 					}),
 				}), {
 					status: 200,
@@ -378,12 +384,18 @@ copyFileSync(fixturePath, outputPath);
 		expect(analysis.parameterSlots).toContainEqual(
 			expect.objectContaining({ name: "dashboard_name", sampleValue: "Q1 dashboard" }),
 		);
-		expect(analysis.steps).toContainEqual(
-			expect.objectContaining({
-				toolName: "gui_click",
-				target: "Publish button",
-			}),
-		);
+			expect(analysis.steps).toContainEqual(
+				expect.objectContaining({
+					toolName: "gui_click",
+					target: "Publish button",
+					toolArgs: {
+						button: "right",
+						windowSelector: {
+							titleContains: "Review",
+						},
+					},
+				}),
+			);
 		expect(analysis.executionPolicy).toMatchObject({
 			toolBinding: "adaptive",
 			preferredRoutes: ["skill", "browser", "gui"],

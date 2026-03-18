@@ -110,15 +110,14 @@ describe("buildUnderstudySystemPrompt", () => {
 				"web_fetch",
 				"vision_read",
 				"browser",
-				"gui_read",
+				"gui_observe",
 				"gui_click",
-				"gui_double_click",
 				"gui_drag",
 				"gui_scroll",
-				"gui_keypress",
-				"gui_hotkey",
-				"gui_screenshot",
+				"gui_type",
+				"gui_key",
 				"gui_wait",
+				"gui_move",
 				"process",
 				"memory_search",
 				"memory_get",
@@ -150,17 +149,16 @@ describe("buildUnderstudySystemPrompt", () => {
 		expect(prompt).toContain("## Messaging");
 		expect(prompt).toContain("generic visual computer-use route");
 		expect(prompt).toContain("Typical GUI patterns");
-		expect(prompt).toContain("`gui_read` -> `gui_scroll` -> `gui_read`");
+		expect(prompt).toContain("`gui_observe` -> `gui_scroll` -> `gui_observe`");
 		expect(prompt).toContain("re-describe the visible target on the current surface");
 		expect(prompt).toContain("re-ground from the latest screenshot without relying on stale grounding history");
 		expect(prompt).toContain("`groundingMode: \"single\"`");
 		expect(prompt).toContain("the retry must use `groundingMode: \"complex\"`");
-		expect(prompt).toContain("Use `gui_keypress` for single keys without modifiers");
-		expect(prompt).toContain("Use `gui_hotkey` only for modifier combos like Command+O, Command+S, or Shift+Command+P");
+		expect(prompt).toContain("Use `gui_key` for single keys (Enter, Tab, Escape, Space, Delete, Backspace, arrow keys, Page Up/Down, Home, End) and also for modifier combos like Command+O, Command+S, or Shift+Command+P");
 		expect(prompt).toContain("`captureMode: \"window\"`");
 		expect(prompt).toContain("`captureMode: \"display\"`");
 		expect(prompt).toContain("Prefer setting `captureMode` explicitly");
-		expect(prompt).toContain("`gui_screenshot` -> `vision_read`");
+		expect(prompt).toContain("`gui_observe` (screenshot mode) -> `vision_read`");
 		expect(prompt).toContain("Prefer `browser` over `gui_*` for normal web pages");
 		expect(prompt).toContain("GUI tools use screenshot capture plus visual grounding.");
 		expect(prompt).toContain("describe the actionable or editable surface itself rather than a broad surrounding region");
@@ -197,7 +195,7 @@ describe("buildUnderstudySystemPrompt", () => {
 			toolNames: ["vision_read"],
 		});
 
-		expect(prompt).toContain("- vision_read: Inspect screenshots or photos, attach the image, and extract OCR text when available");
+		expect(prompt).toContain("- vision_read: Inspect screenshots or photos and attach the image for focused visual reasoning");
 	});
 
 	it("includes runtime info", () => {

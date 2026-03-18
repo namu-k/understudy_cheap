@@ -110,12 +110,12 @@ export function buildPromptImageModeGuidance(
 	mode: PromptImageSupportMode,
 ): string {
 	switch (mode) {
-		case "native":
-			return [
-				"The active model supports native image input.",
-				"When Understudy attaches images to the prompt, inspect them directly before reaching for `vision_read`.",
-				"Use `vision_read` only when you specifically need OCR or a second focused pass over a path/URL image.",
-			].join("\n");
+			case "native":
+				return [
+					"The active model supports native image input.",
+					"When Understudy attaches images to the prompt, inspect them directly before reaching for `vision_read`.",
+					"Use `vision_read` only when you want a second focused pass over a path/URL image.",
+				].join("\n");
 		case "sidecar":
 			return [
 				"The active model does not support native image input.",

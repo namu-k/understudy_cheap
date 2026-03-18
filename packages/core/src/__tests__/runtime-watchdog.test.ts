@@ -66,10 +66,10 @@ describe("runRuntimePreflight", () => {
 
 		const manifest = runRuntimePreflight({
 			profile: "assistant",
-			toolNames: ["gui_read", "gui_click", "gui_wait"],
+			toolNames: ["gui_observe", "gui_click", "gui_wait"],
 		});
 
-		expect(manifest.toolAvailability.gui_read?.enabled).toBe(true);
+		expect(manifest.toolAvailability.gui_observe?.enabled).toBe(true);
 		expect(manifest.toolAvailability.gui_click?.enabled).toBe(true);
 		expect(manifest.toolAvailability.gui_wait?.enabled).toBe(true);
 		expect(manifest.warnings).toHaveLength(0);

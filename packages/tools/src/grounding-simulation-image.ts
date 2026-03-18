@@ -48,6 +48,12 @@ function actionBadgeLabel(action: GuiGroundingActionIntent | undefined): string 
 			return "Simulated scroll";
 		case "type":
 			return "Simulated type";
+		case "observe":
+			return "OBSERVE";
+		case "key":
+			return "KEY";
+		case "move":
+			return "MOVE";
 		default:
 			return "Simulated click";
 	}
@@ -64,6 +70,12 @@ function actionColor(action: GuiGroundingActionIntent | undefined): string {
 			return "#ea580c";
 		case "hover":
 			return "#2563eb";
+		case "observe":
+			return "#6366f1";
+		case "key":
+			return "#d946ef";
+		case "move":
+			return "#f59e0b";
 		default:
 			return "#059669";
 	}
@@ -87,6 +99,12 @@ function actionGlyph(action: GuiGroundingActionIntent | undefined): string {
 			return "Scroll";
 		case "type":
 			return "Type";
+		case "observe":
+			return "Obs";
+		case "key":
+			return "Key";
+		case "move":
+			return "Move";
 		default:
 			return "Click";
 	}

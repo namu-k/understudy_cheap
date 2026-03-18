@@ -8,6 +8,7 @@ import {
 	loadPersistedWorkflowCrystallizationLedger,
 	loadPersistedTaughtTaskDraftLedger,
 	normalizeAssistantDisplayText,
+	normalizeTaughtTaskToolArguments,
 	publishWorkflowCrystallizedSkill,
 	replaceWorkflowCrystallizationClusters,
 	replaceWorkflowCrystallizationDayEpisodes,
@@ -17,6 +18,7 @@ import {
 	stripInlineDirectiveTagsForDisplay,
 	updatePersistedWorkflowCrystallizationLedger,
 	withTimeout,
+	extractTaughtTaskToolArgumentsFromRecord,
 	type TaughtTaskDraftParameter,
 	type TaughtTaskCard,
 	type TaughtTaskDraft,
@@ -1030,6 +1032,7 @@ function scoreTeachReferenceStepMatch(
 		asString(step.scope),
 		asString(step.locationHint),
 		asString(step.windowTitle),
+		"toolArgs" in step && step.toolArgs ? JSON.stringify(step.toolArgs) : undefined,
 	].filter(Boolean).join(" ")));
 	let score = 0;
 	for (const token of queryTokens) {
@@ -1380,8 +1383,7 @@ function normalizeTeachValidationCheck(
 }
 
 const READ_ONLY_TEACH_VALIDATION_TOOLS = new Set([
-	"gui_read",
-	"gui_screenshot",
+	"gui_observe",
 	"gui_wait",
 	"vision_read",
 	"runtime_status",
@@ -1621,6 +1623,7 @@ function summarizeTeachStepForPrompt(step: TaughtTaskDraft["steps"][number]): Re
 		app: step.app,
 		scope: step.scope,
 		inputs: step.inputs,
+		toolArgs: step.toolArgs,
 		locationHint: step.locationHint,
 		windowTitle: step.windowTitle,
 		captureMode: step.captureMode,
@@ -1630,6 +1633,26 @@ function summarizeTeachStepForPrompt(step: TaughtTaskDraft["steps"][number]): Re
 		uncertain: step.uncertain === true,
 	};
 }
+
+const TEACH_STEP_TOOL_ARG_RESERVED_KEYS = new Set([
+	"index",
+	"route",
+	"toolName",
+	"instruction",
+	"summary",
+	"target",
+	"app",
+	"scope",
+	"inputs",
+	"toolArgs",
+	"locationHint",
+	"windowTitle",
+	"captureMode",
+	"groundingMode",
+	"verificationStatus",
+	"verificationSummary",
+	"uncertain",
+]);
 
 function buildTeachClarificationPrompt(params: {
 	draft: TaughtTaskDraft;
@@ -1683,13 +1706,14 @@ function buildTeachClarificationPrompt(params: {
 			"Do not ask the same clarification again with different wording after the user has already answered it.",
 			"When an existing workspace skill cleanly matches a subtask, list it in skillDependencies and reference it in procedure instead of restating low-level UI steps.",
 			"Capture replayPreconditions for the minimum required starting state, and resetSignals for when the environment must be restored before replay.",
+			"Keep exact replay-only GUI parameters such as button, clicks, holdMs, windowSelector, fromTarget/toTarget, wait state, repeat, and modifiers inside steps[].toolArgs so observed GUI steps stay faithful to the current runtime contract.",
 			"When uncertainty remains, keep readyForConfirmation as false and list every material clarification question that still blocks a solid task card.",
 			"Prefer 1-3 concise questions when possible, but do not force everything into a single nextQuestion.",
 			"Teach confirmation is controlled only by the `/teach confirm` slash command.",
 			"When the task card is ready, set readyForConfirmation to true, clear openQuestions and uncertainties, and leave nextQuestion empty.",
 			"Use openQuestions and uncertainties as the canonical outstanding issues. nextQuestion is optional shorthand only when a single question is enough.",
 			"Return strict JSON only.",
-			'Schema: {"title":"...","intent":"...","objective":"...","taskKind":"fixed_demo|parameterized_workflow|batch_workflow","parameterSlots":[{"name":"...","label":"...","sampleValue":"...","required":true,"notes":"..."}],"successCriteria":["..."],"openQuestions":["..."],"uncertainties":["..."],"procedure":[{"instruction":"...","kind":"navigate|extract|transform|filter|output|skill|check","skillName":"optional-skill-name","notes":"...","uncertain":false}],"executionPolicy":{"toolBinding":"adaptive|fixed","preferredRoutes":["skill","browser","shell","gui"],"stepInterpretation":"evidence|fallback_replay|strict_contract","notes":["..."]},"stepRouteOptions":[{"procedureStepId":"procedure-1","route":"skill|browser|shell|gui","preference":"preferred|fallback|observed","instruction":"...","toolName":"exact-available-tool-name","skillName":"optional-skill-name","when":"...","notes":"..."}],"replayPreconditions":["..."],"resetSignals":["..."],"skillDependencies":[{"name":"...","reason":"...","required":true}],"steps":[{"route":"gui|browser|shell|web|workspace|memory|messaging|automation|system|custom","toolName":"exact-available-tool-name","instruction":"...","summary":"...","target":"...","app":"...","scope":"...","locationHint":"...","windowTitle":"...","captureMode":"window|display","groundingMode":"single|complex","inputs":{"key":"value"},"verificationSummary":"...","uncertain":false}],"taskCard":{"goal":"...","scope":"...","loopOver":"...","inputs":["..."],"extract":["..."],"formula":"...","filter":"...","output":"..."},"summary":"...","nextQuestion":"...","readyForConfirmation":false,"excludedDemoSteps":["..."]}',
+			'Schema: {"title":"...","intent":"...","objective":"...","taskKind":"fixed_demo|parameterized_workflow|batch_workflow","parameterSlots":[{"name":"...","label":"...","sampleValue":"...","required":true,"notes":"..."}],"successCriteria":["..."],"openQuestions":["..."],"uncertainties":["..."],"procedure":[{"instruction":"...","kind":"navigate|extract|transform|filter|output|skill|check","skillName":"optional-skill-name","notes":"...","uncertain":false}],"executionPolicy":{"toolBinding":"adaptive|fixed","preferredRoutes":["skill","browser","shell","gui"],"stepInterpretation":"evidence|fallback_replay|strict_contract","notes":["..."]},"stepRouteOptions":[{"procedureStepId":"procedure-1","route":"skill|browser|shell|gui","preference":"preferred|fallback|observed","instruction":"...","toolName":"exact-available-tool-name","skillName":"optional-skill-name","when":"...","notes":"..."}],"replayPreconditions":["..."],"resetSignals":["..."],"skillDependencies":[{"name":"...","reason":"...","required":true}],"steps":[{"route":"gui|browser|shell|web|workspace|memory|messaging|automation|system|custom","toolName":"exact-available-tool-name","instruction":"...","summary":"...","target":"...","app":"...","scope":"...","locationHint":"...","windowTitle":"...","captureMode":"window|display","groundingMode":"single|complex","inputs":{"key":"value"},"toolArgs":{"button":"right","windowSelector":{"titleContains":"Draft"}},"verificationSummary":"...","uncertain":false}],"taskCard":{"goal":"...","scope":"...","loopOver":"...","inputs":["..."],"extract":["..."],"formula":"...","filter":"...","output":"..."},"summary":"...","nextQuestion":"...","readyForConfirmation":false,"excludedDemoSteps":["..."]}',
 			"Keep the task card concise and reusable.",
 		"Current draft JSON:",
 		JSON.stringify(draftSummary, null, 2),
@@ -1862,6 +1886,7 @@ function buildTeachControlNoisePatch(draft: TaughtTaskDraft): {
 } {
 	const keptSteps = draft.steps.filter((step) => {
 		const inputsText = step.inputs ? Object.values(step.inputs).join(" ") : "";
+		const toolArgsText = step.toolArgs ? JSON.stringify(step.toolArgs) : "";
 		const haystack = [
 			step.instruction,
 			step.summary,
@@ -1870,6 +1895,7 @@ function buildTeachControlNoisePatch(draft: TaughtTaskDraft): {
 			step.scope,
 			step.verificationSummary,
 			inputsText,
+			toolArgsText,
 		].filter(Boolean).join(" ");
 		return !isTeachControlNoiseText(haystack);
 	});
@@ -2490,6 +2516,28 @@ export function createGatewaySessionRuntime(
 		} catch {
 			return undefined;
 		}
+	};
+
+	const recreateSessionEntry = async (entry: SessionEntry): Promise<SessionEntry> => {
+		await deletePersistedSession?.({ sessionId: entry.id });
+		const recreated = await createScopedSession({
+			sessionKey: entry.id,
+			parentId: entry.parentId,
+			forkPoint: entry.forkPoint,
+			channelId: entry.channelId,
+			senderId: entry.senderId,
+			senderName: entry.senderName,
+			conversationName: entry.conversationName,
+			conversationType: entry.conversationType,
+			threadId: entry.threadId,
+			workspaceDir: entry.workspaceDir,
+			configOverride: entry.configOverride,
+			sandboxInfo: entry.sandboxInfo,
+			executionScopeKey: entry.executionScopeKey,
+		});
+		sessionEntries.set(entry.id, recreated);
+		onStateChanged?.();
+		return recreated;
 	};
 
 	const taskDraftHandlers = createGatewayTaskDraftHandlers({
@@ -4506,20 +4554,22 @@ export function createGatewaySessionRuntime(
 			patch.resetSignals = payload.resetSignals;
 		}
 		if (payload.steps !== undefined) {
-			patch.steps = payload.steps.map((entry, index) => {
-				if (typeof entry === "string") {
-					return entry;
-				}
-				const baseStep = draft.steps[index];
+				patch.steps = payload.steps.map((entry, index) => {
+					if (typeof entry === "string") {
+						return entry;
+					}
+					const baseStep = draft.steps[index];
 				const inputs = entry.inputs && typeof entry.inputs === "object" && !Array.isArray(entry.inputs)
 					? entry.inputs as Record<string, unknown>
 					: undefined;
-				const captureMode = asString(entry.captureMode);
-				const groundingMode = asString(entry.groundingMode);
-				const uncertain = asBoolean(entry.uncertain);
-				return {
-					route: asString(entry.route) ?? baseStep?.route,
-					toolName: asString(entry.toolName) ?? baseStep?.toolName,
+					const captureMode = asString(entry.captureMode);
+					const groundingMode = asString(entry.groundingMode);
+					const uncertain = asBoolean(entry.uncertain);
+					const explicitToolArgs = normalizeTaughtTaskToolArguments(entry.toolArgs);
+					const implicitToolArgs = extractTaughtTaskToolArgumentsFromRecord(entry, TEACH_STEP_TOOL_ARG_RESERVED_KEYS);
+					return {
+						route: asString(entry.route) ?? baseStep?.route,
+						toolName: asString(entry.toolName) ?? baseStep?.toolName,
 					instruction: asString(entry.instruction) ?? asString(entry.summary) ?? baseStep?.instruction,
 					summary: asString(entry.summary) ?? baseStep?.summary,
 					target: asString(entry.target) ?? baseStep?.target,
@@ -4532,11 +4582,17 @@ export function createGatewaySessionRuntime(
 								.filter((pair): pair is [string, string] => Boolean(pair[1])),
 						)
 						: baseStep?.inputs,
-					locationHint: asString(entry.locationHint) ?? baseStep?.locationHint,
-					windowTitle: asString(entry.windowTitle) ?? baseStep?.windowTitle,
-					captureMode: captureMode === "window" || captureMode === "display"
-						? captureMode
-						: baseStep?.captureMode,
+						locationHint: asString(entry.locationHint) ?? baseStep?.locationHint,
+						windowTitle: asString(entry.windowTitle) ?? baseStep?.windowTitle,
+						toolArgs: explicitToolArgs || implicitToolArgs
+							? {
+								...(implicitToolArgs ?? {}),
+								...(explicitToolArgs ?? {}),
+							}
+							: baseStep?.toolArgs,
+						captureMode: captureMode === "window" || captureMode === "display"
+							? captureMode
+							: baseStep?.captureMode,
 					groundingMode: groundingMode === "single" || groundingMode === "complex"
 						? groundingMode
 						: baseStep?.groundingMode,
@@ -4631,6 +4687,11 @@ export function createGatewaySessionRuntime(
 							app: step.app,
 							scope: step.scope,
 							inputs: step.inputs,
+							toolArgs: step.toolArgs,
+							locationHint: step.locationHint,
+							windowTitle: step.windowTitle,
+							captureMode: step.captureMode,
+							groundingMode: step.groundingMode,
 							verificationSummary: step.verificationSummary,
 							uncertain: false,
 						})),
@@ -5664,20 +5725,22 @@ export function createGatewaySessionRuntime(
 		const reset = parseResetCommand(text);
 		let effectiveText = text;
 		if (reset) {
-			scopedSession = await getOrCreateSession({
-				channelId: context?.channelId,
-				senderId: context?.senderId,
-				senderName: context?.senderName,
-				conversationName: context?.conversationName,
-				conversationType: context?.conversationType as "direct" | "group" | "thread" | undefined,
-				threadId: context?.threadId,
-				forceNew: true,
-				workspaceDir: requestedWorkspaceDir,
-				explicitWorkspace: Boolean(requestedWorkspaceDir),
-				configOverride: runtimeContext.configOverride,
-				sandboxInfo: runtimeContext.sandboxInfo,
-				executionScopeKey: runtimeContext.executionScopeKey,
-			});
+			scopedSession = reset.command === "new"
+				? await getOrCreateSession({
+					channelId: context?.channelId,
+					senderId: context?.senderId,
+					senderName: context?.senderName,
+					conversationName: context?.conversationName,
+					conversationType: context?.conversationType as "direct" | "group" | "thread" | undefined,
+					threadId: context?.threadId,
+					forceNew: true,
+					workspaceDir: requestedWorkspaceDir,
+					explicitWorkspace: Boolean(requestedWorkspaceDir),
+					configOverride: runtimeContext.configOverride,
+					sandboxInfo: runtimeContext.sandboxInfo,
+					executionScopeKey: runtimeContext.executionScopeKey,
+				})
+				: await recreateSessionEntry(scopedSession);
 			effectiveText = resolveResetPrompt(reset, config.agent.userTimezone);
 		}
 		const teach = parseTeachCommand(effectiveText);
@@ -5926,42 +5989,37 @@ export function createGatewaySessionRuntime(
 					throw new Error(`Session not found: ${sessionId}`);
 				}
 				if (reset) {
-					await deletePersistedSession?.({ sessionId });
-					const recreated = await createScopedSession({
-						sessionKey: sessionId,
-						parentId: entry.parentId,
-						forkPoint: entry.forkPoint,
-						channelId: entry.channelId,
-						senderId: entry.senderId,
-						senderName: entry.senderName,
-						conversationName: entry.conversationName,
-						conversationType: entry.conversationType,
-						threadId: entry.threadId,
-						workspaceDir: entry.workspaceDir,
-						configOverride: entry.configOverride,
-						sandboxInfo: entry.sandboxInfo,
-						executionScopeKey: entry.executionScopeKey,
-					});
-					sessionEntries.set(sessionId, recreated);
-					onStateChanged?.();
-					entry = recreated;
+					entry = await recreateSessionEntry(entry);
 					effectiveText = resolveResetPrompt(reset, config.agent.userTimezone);
 				}
 			} else {
-				entry = await getOrCreateSession({
+				const lookupContext = {
 					channelId: asString(params?.channelId),
 					senderId: asString(params?.senderId),
 					senderName: asString(params?.senderName),
 					conversationName: asString(params?.conversationName),
 					conversationType: asString(params?.conversationType) as "direct" | "group" | "thread" | undefined,
 					threadId: asString(params?.threadId),
-					forceNew: params?.forceNew === true || Boolean(reset),
 					workspaceDir: requestedWorkspaceDir,
 					explicitWorkspace: Boolean(requestedWorkspaceDir),
 					configOverride: (params as RuntimeSessionContextExtras | undefined)?.configOverride,
 					sandboxInfo: (params as RuntimeSessionContextExtras | undefined)?.sandboxInfo,
 					executionScopeKey: (params as RuntimeSessionContextExtras | undefined)?.executionScopeKey,
-				});
+				};
+				if (reset?.command === "new") {
+					entry = await getOrCreateSession({
+						...lookupContext,
+						forceNew: true,
+					});
+				} else {
+					entry = await getOrCreateSession({
+						...lookupContext,
+						forceNew: params?.forceNew === true,
+					});
+					if (reset?.command === "reset") {
+						entry = await recreateSessionEntry(entry);
+					}
+				}
 				onStateChanged?.();
 				if (reset) {
 					effectiveText = resolveResetPrompt(reset, config.agent.userTimezone);
@@ -6049,24 +6107,7 @@ export function createGatewaySessionRuntime(
 			if (!existing) {
 				throw new Error(`Session not found: ${sessionId}`);
 			}
-			await deletePersistedSession?.({ sessionId });
-			const recreated = await createScopedSession({
-				sessionKey: sessionId,
-				parentId: existing.parentId,
-				forkPoint: existing.forkPoint,
-				channelId: existing.channelId,
-				senderId: existing.senderId,
-				senderName: existing.senderName,
-				conversationName: existing.conversationName,
-				conversationType: existing.conversationType,
-				threadId: existing.threadId,
-				workspaceDir: existing.workspaceDir,
-				configOverride: existing.configOverride,
-				sandboxInfo: existing.sandboxInfo,
-				executionScopeKey: existing.executionScopeKey,
-			});
-			sessionEntries.set(sessionId, recreated);
-			onStateChanged?.();
+			const recreated = await recreateSessionEntry(existing);
 			return buildSessionSummary(recreated);
 		},
 		delete: async (params) => {

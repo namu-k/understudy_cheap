@@ -37,7 +37,7 @@ Layer 5  Proactive autonomy             → notice and act without blocking the 
 
 ### GUI Tool Surface
 
-`gui_read`, `gui_click`, `gui_right_click`, `gui_double_click`, `gui_hover`, `gui_click_and_hold`, `gui_drag`, `gui_scroll`, `gui_type`, `gui_keypress`, `gui_hotkey`, `gui_screenshot`, `gui_wait`
+`gui_observe`, `gui_click`, `gui_drag`, `gui_scroll`, `gui_type`, `gui_key`, `gui_wait`, `gui_move`
 
 These tools live alongside `bash`, `browser`, `web_fetch`, and `web_search`, selected by the planner/orchestrator.
 
@@ -170,7 +170,7 @@ The published SKILL.md is a three-layer abstraction, not a coordinate recording:
 
 1. **Intent procedure** (`## Staged Workflow`) — natural language steps. Instructions explicitly tell the agent: "Learn the workflow, not the tool sequence"
 2. **Route options** (`## Tool Route Options`) — each step annotates `preferred` / `fallback` / `observed` routes. Preference order: skill → browser → shell → gui. Execution policy defaults to `toolBinding: "adaptive"`, `stepInterpretation: "fallback_replay"`
-3. **GUI replay hints** (`## Detailed GUI Replay Hints`) — last resort only. Failure policy requires: `gui_read` before each action to confirm target visibility; target descriptions come from the current screenshot, not recorded coordinates; replan on route divergence rather than blind replay
+3. **GUI replay hints** (`## Detailed GUI Replay Hints`) — last resort only. Failure policy requires: `gui_observe` before each action to confirm target visibility; target descriptions come from the current screenshot, not recorded coordinates; replan on route divergence rather than blind replay
 
 UI redesigns, window resizing, even switching to a similar app — as long as the semantic target still exists, the skill works.
 
@@ -383,7 +383,7 @@ This fallback chain is transparent to the agent — it just calls the `browser` 
 Not all GUI tools are always available. The runtime dynamically enables/disables tool subsets based on:
 
 - **Accessibility permission** — required for input-driving tools (click, type, drag, scroll)
-- **Screen Recording permission** — required for screenshot-based tools (grounding, read, screenshot)
+- **Screen Recording permission** — required for screenshot-based GUI tools (`gui_observe` plus screenshot-grounded click/drag/wait flows)
 - **Grounding provider** — required for visual target resolution
 
 If a permission is missing, the corresponding tools are hidden from the model's tool list entirely, not just blocked at execution time. This prevents the agent from planning around tools it can't use.
@@ -505,7 +505,7 @@ Promotion criteria: N consecutive successful executions of the same skill + no u
 **Implemented and passing acceptance:**
 
 - Layers 1–3 (operate, learn, remember) implemented and tested
-- 13 GUI tools with grounding (30/30 benchmark)
+- 8 GUI tools with grounding (30/30 benchmark)
 - Teach-by-demonstration with video-first evidence analysis
 - Workspace skills with publish flow
 - Session persistence, execution traces, memory

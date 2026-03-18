@@ -671,6 +671,83 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 		expect(result).toMatchObject({ sessionId: "scope-1" });
 	});
 
+	it("treats bare /reset as an in-place session recreation in chat handler", async () => {
+		const sessionEntries = new Map<string, SessionEntry>();
+		const inFlightSessionIds = new Set<string>();
+		const oldEntry = createEntry("scope-reset", {
+			channelId: "web",
+			senderId: "user-1",
+			parentId: "parent-1",
+			forkPoint: 2,
+			executionScopeKey: "scope-alpha",
+		});
+		const resetEntry = createEntry("scope-reset", {
+			channelId: "web",
+			senderId: "user-1",
+			parentId: "parent-1",
+			forkPoint: 2,
+			executionScopeKey: "scope-alpha",
+		});
+		const usageTracker = { record: vi.fn() };
+		const appendHistory = vi.fn();
+		const getOrCreateSession = vi.fn(async () => oldEntry);
+		const createScopedSession = vi.fn(async () => resetEntry);
+		const deletePersistedSession = vi.fn(async () => undefined);
+		const promptSession = vi.fn(async (_entry: SessionEntry, text: string) => ({
+			response: `assistant:${text}`,
+			runId: "run-reset",
+		}));
+		const abortSessionEntry = vi.fn(async () => false);
+
+		const runtime = createGatewaySessionRuntime({
+			sessionEntries,
+			inFlightSessionIds,
+			config: {
+				defaultModel: "claude-sonnet-4-6",
+				defaultProvider: "anthropic",
+				agent: { userTimezone: "Asia/Hong_Kong" },
+			} as any,
+			usageTracker: usageTracker as any,
+			estimateTokens: (text) => text.length,
+			appendHistory: appendHistory as any,
+			getOrCreateSession: getOrCreateSession as any,
+			createScopedSession: createScopedSession as any,
+			promptSession: promptSession as any,
+			abortSessionEntry: abortSessionEntry as any,
+			deletePersistedSession,
+		});
+
+		const result = await runtime.chatHandler("/reset", {
+			channelId: "web",
+			senderId: "user-1",
+		});
+
+		expect(getOrCreateSession).toHaveBeenCalledTimes(1);
+		expect(deletePersistedSession).toHaveBeenCalledWith({ sessionId: "scope-reset" });
+		expect(createScopedSession).toHaveBeenCalledWith({
+			sessionKey: "scope-reset",
+			parentId: "parent-1",
+			forkPoint: 2,
+			channelId: "web",
+			senderId: "user-1",
+			senderName: oldEntry.senderName,
+			conversationName: oldEntry.conversationName,
+			conversationType: oldEntry.conversationType,
+			threadId: oldEntry.threadId,
+			workspaceDir: oldEntry.workspaceDir,
+			configOverride: oldEntry.configOverride,
+			sandboxInfo: oldEntry.sandboxInfo,
+			executionScopeKey: "scope-alpha",
+		});
+		expect(promptSession).toHaveBeenCalledWith(
+			resetEntry,
+			expect.stringContaining("A new session was started via /new or /reset"),
+			expect.any(String),
+			undefined,
+		);
+		expect(result).toMatchObject({ sessionId: "scope-reset" });
+	});
+
 	it("serializes same-session prompt execution instead of starting concurrent runs", async () => {
 		const sessionEntries = new Map<string, SessionEntry>();
 		const inFlightSessionIds = new Set<string>();
@@ -795,7 +872,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 				toolTrace: [
 					{
 						type: "toolResult",
-						name: "gui_screenshot",
+						name: "gui_observe",
 						images: [
 							{
 								imageData: "c2NyZWVuc2hvdA==",
@@ -1376,7 +1453,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 					toolTrace: [
 						{
 							type: "toolResult",
-							name: "gui_screenshot",
+							name: "gui_observe",
 							route: "gui",
 							textPreview: "Captured a GUI screenshot.",
 							images: [
@@ -1388,7 +1465,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 						},
 					],
 					progressSteps: [
-						{ kind: "tool", label: "Capture screenshot", toolName: "gui_screenshot", route: "gui", state: "done", updatedAt: 10 },
+						{ kind: "tool", label: "Capture screenshot", toolName: "gui_observe", route: "gui", state: "done", updatedAt: 10 },
 					],
 				},
 			})) as any,
@@ -1404,7 +1481,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 		expect((trace.runs as Array<Record<string, unknown>>)[0]?.toolTrace).toMatchObject([
 			{
 				type: "toolResult",
-				name: "gui_screenshot",
+				name: "gui_observe",
 				route: "gui",
 				images: [
 					{
@@ -1426,7 +1503,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 					toolTrace: [
 						{
 							type: "toolResult",
-							name: "gui_screenshot",
+							name: "gui_observe",
 							route: "gui",
 							images: [
 								{
@@ -1653,10 +1730,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 				runId: "run-teach-clarify-1",
 				meta: {
 					toolTrace: [
-						{ type: "toolCall", name: "gui_read", route: "gui" },
+						{ type: "toolCall", name: "gui_observe", route: "gui" },
 						{
 							type: "toolResult",
-							name: "gui_read",
+							name: "gui_observe",
 							route: "gui",
 							status: { code: "condition_met", summary: "Publish button is visible in the review panel." },
 						},
@@ -2119,10 +2196,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 								route: "gui",
 								status: { code: "action_sent", summary: "Clicked Send in Telegram." },
 							},
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								status: { code: "condition_met", summary: "Telegram shows the sent report in the current chat." },
 							},
@@ -2573,10 +2650,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 					runId: "run-teach-clarify-2",
 					meta: {
 						toolTrace: [
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								status: { code: "condition_met", summary: "Publish button is visible in the review panel." },
 							},
@@ -2598,10 +2675,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 					runId: "run-teach-validate-2",
 					meta: {
 						toolTrace: [
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								status: { code: "not_found", summary: "Published confirmation is not visible." },
 							},
@@ -2630,10 +2707,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 								route: "gui",
 								status: { code: "action_sent", summary: "Publish button clicked after reset." },
 							},
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								status: { code: "condition_met", summary: "Published confirmation is visible again." },
 							},
@@ -2851,10 +2928,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 				runId: "run-teach-validate-scope",
 				meta: {
 					toolTrace: [
-						{ type: "toolCall", name: "gui_read", route: "gui" },
+						{ type: "toolCall", name: "gui_observe", route: "gui" },
 						{
 							type: "toolResult",
-							name: "gui_read",
+							name: "gui_observe",
 							route: "gui",
 							status: { code: "observed", summary: "Visual GUI snapshot captured." },
 						},
@@ -2932,7 +3009,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 			expect(result.validation.state).toBe("requires_reset");
 			expect(result.validation.mode).toBe("replay");
 			expect(result.validation.usedMutatingTools).toBe(false);
-			expect(result.validation.toolNames).toEqual(["gui_read"]);
+			expect(result.validation.toolNames).toEqual(["gui_observe"]);
 			expect(result.validation.mutatingToolNames).toEqual([]);
 			expect(createScopedSession).toHaveBeenCalledWith(expect.objectContaining({
 				parentId: entry.id,
@@ -3003,10 +3080,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 							route: "gui",
 							status: { code: "action_sent", summary: "Opened Calculator." },
 						},
-						{ type: "toolCall", name: "gui_read", route: "gui" },
+						{ type: "toolCall", name: "gui_observe", route: "gui" },
 						{
 							type: "toolResult",
-							name: "gui_read",
+							name: "gui_observe",
 							route: "gui",
 							status: { code: "condition_met", summary: "Calculator display shows 2." },
 						},
@@ -3084,7 +3161,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 			expect(result.validation.state).toBe("validated");
 			expect(result.validation.summary).toContain("Calculator display shows 2");
 			expect(result.validation.usedMutatingTools).toBe(true);
-			expect(result.validation.toolNames).toEqual(["gui_click", "gui_read"]);
+			expect(result.validation.toolNames).toEqual(["gui_click", "gui_observe"]);
 			expect(promptSession).toHaveBeenCalledTimes(1);
 			expect(promptSession.mock.calls[0]?.[1]).toContain("Open Calculator and compute 1+1.");
 			expect(promptSession.mock.calls[0]?.[1]).toContain("Task card:");
@@ -3141,10 +3218,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 							route: "gui",
 							status: { code: "action_sent", summary: "Opened Calculator." },
 						},
-						{ type: "toolCall", name: "gui_read", route: "gui" },
+						{ type: "toolCall", name: "gui_observe", route: "gui" },
 						{
 							type: "toolResult",
-							name: "gui_read",
+							name: "gui_observe",
 							route: "gui",
 							status: { code: "condition_met", summary: "Calculator display shows 2." },
 						},
@@ -3222,7 +3299,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 			expect(result.validation.state).toBe("validated");
 			expect(result.validation.summary).toContain("Calculator display shows 2");
 			expect(result.validation.usedMutatingTools).toBe(true);
-			expect(result.validation.toolNames).toEqual(["gui_click", "gui_read"]);
+			expect(result.validation.toolNames).toEqual(["gui_click", "gui_observe"]);
 			expect(promptSession).toHaveBeenCalledTimes(1);
 			expect(result.validation.checks).toEqual(expect.arrayContaining([
 				expect.objectContaining({ id: "teach-validation:json_fallback" }),
@@ -3281,10 +3358,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 					runId: "run-teach-validate-recovered",
 					meta: {
 						toolTrace: [
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								isError: true,
 								error: "Window title did not match.",
@@ -3296,10 +3373,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 								route: "gui",
 								status: { code: "action_sent", summary: "Pressed 1 + 1." },
 							},
-							{ type: "toolCall", name: "gui_read", route: "gui" },
+							{ type: "toolCall", name: "gui_observe", route: "gui" },
 							{
 								type: "toolResult",
-								name: "gui_read",
+								name: "gui_observe",
 								route: "gui",
 								status: { code: "condition_met", summary: "Calculator display shows 2." },
 							},
@@ -3629,10 +3706,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 									route: "gui",
 									status: { code: "action_sent", summary: "Scrolled until prices were visible." },
 								},
-								{ type: "toolCall", name: "gui_read", route: "gui" },
+								{ type: "toolCall", name: "gui_observe", route: "gui" },
 								{
 									type: "toolResult",
-									name: "gui_read",
+									name: "gui_observe",
 									route: "gui",
 									status: { code: "condition_met", summary: "The calculation workflow is visible." },
 								},
@@ -3947,10 +4024,10 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 									route: "gui",
 									status: { code: "action_sent", summary: "Opened the Barron's Stock Picks source in Chrome." },
 								},
-								{ type: "toolCall", name: "gui_read", route: "gui" },
+								{ type: "toolCall", name: "gui_observe", route: "gui" },
 								{
 									type: "toolResult",
-									name: "gui_read",
+									name: "gui_observe",
 									route: "gui",
 									status: { code: "condition_met", summary: "The Barron's workflow is visible." },
 								},
@@ -4144,7 +4221,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 							steps: [
 								{
 									route: "gui",
-									toolName: "gui_read",
+									toolName: "gui_observe",
 									instruction: "Read the open Barron's article.",
 									target: "Barron's article",
 								},
@@ -4176,7 +4253,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 							steps: [
 								{
 									route: "gui",
-									toolName: "gui_read",
+									toolName: "gui_observe",
 									instruction: "Read the first Barron's stock-pick article.",
 									target: "Barron's article",
 								},
@@ -4255,7 +4332,7 @@ describe("createGatewaySessionRuntime reset behavior", () => {
 						steps: [
 							{
 								route: "gui",
-								toolName: "gui_read",
+								toolName: "gui_observe",
 								instruction: "Read the open Barron's article.",
 								target: "Barron's article",
 							},

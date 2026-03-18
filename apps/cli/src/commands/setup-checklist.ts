@@ -295,17 +295,6 @@ export async function collectSetupChecklist(config: UnderstudyConfig): Promise<S
 		});
 	}
 
-	const tesseractReady = await binaryAvailable("tesseract", ["--version"]);
-	items.push({
-		id: "vision-read-ocr",
-		label: "On-device OCR",
-		status: tesseractReady ? "ok" : "warn",
-		summary: tesseractReady
-			? "tesseract is available for vision_read OCR."
-			: "tesseract is missing; local OCR will be unavailable in vision_read.",
-		fix: tesseractReady ? undefined : 'Install "tesseract" if you want local OCR in the vision_read tool.',
-	});
-
 	const guiReadiness = await inspectGuiEnvironmentReadiness();
 	for (const check of guiReadiness.checks) {
 		const openTarget = check.id === "accessibility"

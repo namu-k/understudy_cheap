@@ -287,6 +287,148 @@ describe("teach drafts", () => {
 		expect(snapshot.resolvedSkills.some((skill) => skill.name === published.skill.name)).toBe(true);
 	});
 
+	it("preserves exact GUI replay parameters in traced draft steps", () => {
+		const draft = buildTaughtTaskDraftFromRun({
+			workspaceDir: "/repo/app",
+			repoRoot: "/repo",
+			runId: "run-gui-args",
+			promptPreview: "Work through the demonstrated GUI flow",
+			toolTrace: [
+				{
+					type: "toolCall",
+					id: "tool-1",
+					name: "gui_click",
+					arguments: {
+						target: "Context button",
+						app: "Mail",
+						scope: "Composer",
+						button: "right",
+						windowSelector: {
+							titleContains: "Draft",
+							index: 2,
+						},
+					},
+				},
+				{
+					type: "toolResult",
+					id: "tool-1",
+					name: "gui_click",
+					route: "gui",
+					textPreview: "Opened context menu",
+					status: { code: "action_sent", summary: "Context menu opened." },
+				},
+				{
+					type: "toolCall",
+					id: "tool-2",
+					name: "gui_drag",
+					arguments: {
+						fromTarget: "Draft card",
+						toTarget: "Released card",
+						fromScope: "Workspace panel",
+						toScope: "Workspace panel",
+						durationMs: 450,
+					},
+				},
+				{
+					type: "toolResult",
+					id: "tool-2",
+					name: "gui_drag",
+					route: "gui",
+					textPreview: "Reordered the cards",
+					status: { code: "action_sent", summary: "Cards reordered." },
+				},
+				{
+					type: "toolCall",
+					id: "tool-3",
+					name: "gui_key",
+					arguments: {
+						app: "Mail",
+						key: "Page Down",
+						modifiers: ["shift"],
+						repeat: 2,
+					},
+				},
+				{
+					type: "toolResult",
+					id: "tool-3",
+					name: "gui_key",
+					route: "gui",
+					textPreview: "Moved to the next page",
+					status: { code: "action_sent", summary: "Moved to the next page." },
+				},
+				{
+					type: "toolCall",
+					id: "tool-4",
+					name: "gui_wait",
+					arguments: {
+						target: "Sync banner",
+						scope: "toolbar",
+						state: "disappear",
+						timeoutMs: 5_000,
+						intervalMs: 250,
+					},
+				},
+				{
+					type: "toolResult",
+					id: "tool-4",
+					name: "gui_wait",
+					route: "gui",
+					textPreview: "Sync banner disappeared",
+					status: { code: "condition_met", summary: "Sync banner disappeared." },
+				},
+			],
+		});
+
+		expect(draft.steps).toContainEqual(expect.objectContaining({
+			toolName: "gui_click",
+			instruction: "Right-click Context button in Mail / Composer.",
+			toolArgs: {
+				button: "right",
+				windowSelector: {
+					titleContains: "Draft",
+					index: 2,
+				},
+			},
+		}));
+		expect(draft.steps).toContainEqual(expect.objectContaining({
+			toolName: "gui_drag",
+			instruction: "Drag Draft card to Released card in Workspace panel.",
+			toolArgs: {
+				fromTarget: "Draft card",
+				toTarget: "Released card",
+				fromScope: "Workspace panel",
+				toScope: "Workspace panel",
+				durationMs: 450,
+			},
+		}));
+		expect(draft.steps).toContainEqual(expect.objectContaining({
+			toolName: "gui_key",
+			instruction: "Press shift+Page Down 2 times in Mail.",
+			toolArgs: {
+				key: "Page Down",
+				modifiers: ["shift"],
+				repeat: 2,
+			},
+		}));
+		expect(draft.steps).toContainEqual(expect.objectContaining({
+			toolName: "gui_wait",
+			instruction: "Wait for Sync banner in toolbar to disappear.",
+			toolArgs: {
+				state: "disappear",
+				timeoutMs: 5000,
+				intervalMs: 250,
+			},
+		}));
+
+		const prompt = buildTaughtTaskDraftPromptContent({
+			updatedAt: Date.now(),
+			workspaceDir: "/repo/app",
+			drafts: [draft],
+		});
+		expect(prompt).toContain('toolArgs: button=right, windowSelector={"titleContains":"Draft","index":2}');
+		expect(prompt).toContain("toolArgs: key=Page Down, modifiers=shift, repeat=2");
+	});
+
 	it("builds a teach draft from video analysis output", () => {
 		const draft = createTaughtTaskDraftFromVideo({
 			workspaceDir: "/repo/app",
@@ -321,6 +463,12 @@ describe("teach drafts", () => {
 					toolName: "gui_click",
 					instruction: "Click the Publish button in the moderation panel.",
 					target: "Publish button",
+					toolArgs: {
+						button: "right",
+						windowSelector: {
+							titleContains: "Review",
+						},
+					},
 				},
 			],
 			sourceDetails: {
@@ -349,7 +497,16 @@ describe("teach drafts", () => {
 			expect.objectContaining({ name: "dashboard_name", sampleValue: "Q1 dashboard" }),
 		);
 		expect(draft.steps).toContainEqual(
-			expect.objectContaining({ toolName: "gui_click", target: "Publish button" }),
+			expect.objectContaining({
+				toolName: "gui_click",
+				target: "Publish button",
+				toolArgs: {
+					button: "right",
+					windowSelector: {
+						titleContains: "Review",
+					},
+				},
+			}),
 		);
 		expect(draft.taskCard).toMatchObject({
 			goal: "Publish the reviewed dashboard from the moderation queue.",

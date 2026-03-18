@@ -370,6 +370,7 @@ export function createGatewayTaskDraftHandlers(
 					...(step.groundingMode ? { groundingMode: step.groundingMode } : {}),
 					...(step.locationHint ? { locationHint: step.locationHint } : {}),
 					...(step.windowTitle ? { windowTitle: step.windowTitle } : {}),
+					...(step.toolArgs ? { toolArgs: step.toolArgs } : {}),
 					verificationSummary: step.verificationSummary,
 					uncertain: step.uncertain,
 				})),

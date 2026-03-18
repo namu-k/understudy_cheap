@@ -126,7 +126,7 @@ describe("tool execution trace helpers", () => {
 	});
 
 	it("preserves image payloads for renderable tool trace cards", () => {
-		const summary = buildToolExecutionResultSummary("gui_screenshot", {
+		const summary = buildToolExecutionResultSummary("gui_observe", {
 			content: [
 				{ type: "text", text: "Captured a screenshot." },
 				{ type: "image", data: "ZmFrZS1pbWFnZS1ieXRlcw==", mimeType: "image/png" },
