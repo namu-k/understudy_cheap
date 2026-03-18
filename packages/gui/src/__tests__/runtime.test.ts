@@ -457,6 +457,18 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).not.toContain("-C");
 	});
 
+	it("omits the screenshot image when gui_observe returnImage is false", async () => {
+		const runtime = new ComputerUseGuiRuntime();
+
+		const result = await runtime.observe({
+			app: "Mail",
+			returnImage: false,
+		});
+
+		expect(result.status.code).toBe("observed");
+		expect(result.image).toBeUndefined();
+	});
+
 		it("re-grounds a same-target click after gui_observe so action-specific context reaches the grounding model", async () => {
 		const ground = vi.fn().mockResolvedValue(
 			groundedTarget("Send button", { x: 48, y: 64 }, 0.96),
@@ -1213,6 +1225,26 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(focusClickCall?.env.UNDERSTUDY_GUI_ACTIVATE_APP).toBe("1");
 	});
 
+	it("passes window selection through to targetless typing", async () => {
+		const runtime = createRuntime(vi.fn());
+
+		const result = await runtime.type({
+			app: "Mail",
+			value: "hello world",
+			windowSelector: {
+				titleContains: "Draft",
+				index: 2,
+			},
+		});
+
+		expect(result.status.code).toBe("action_sent");
+		const typeCall = mocks.execCalls.find((call) => call.file === "osascript" && call.env.UNDERSTUDY_GUI_TEXT === "hello world");
+		expect(typeCall?.env).toMatchObject({
+			UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS: "Draft",
+			UNDERSTUDY_GUI_WINDOW_INDEX: "2",
+		});
+	});
+
 	it("sends key actions with modifiers", async () => {
 		const ground = vi.fn();
 		const runtime = createRuntime(ground);
@@ -1247,6 +1279,28 @@ describe("ComputerUseGuiRuntime", () => {
 			grounding_method: "visual",
 		});
 		expect(ground).not.toHaveBeenCalled();
+		const keyCall = mocks.execCalls.find((call) => call.file === "osascript" && call.env.UNDERSTUDY_GUI_REPEAT === "2");
+		expect(keyCall?.env.UNDERSTUDY_GUI_KEY_CODE).toBe("125");
+		expect(keyCall?.env.UNDERSTUDY_GUI_KEY).toBe("");
+	});
+
+	it("routes selected-window special keys through key codes", async () => {
+		const runtime = createRuntime(vi.fn());
+
+		const result = await runtime.key({
+			app: "Mail",
+			key: "Page Down",
+			windowSelector: {
+				titleContains: "Draft",
+			},
+		});
+
+		expect(result.status.code).toBe("action_sent");
+		const keyCall = mocks.execCalls.find((call) => call.file === "osascript" && call.env.UNDERSTUDY_GUI_KEY_CODE === "121");
+		expect(keyCall?.env).toMatchObject({
+			UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS: "Draft",
+			UNDERSTUDY_GUI_KEY: "",
+		});
 	});
 
 	it("waits for a grounded target to appear", async () => {

@@ -21,7 +21,7 @@ const gatewayUrl = `http://127.0.0.1:${testPort}`;
 const reportPath = join(testHome, "understudy-basics-report.md");
 const gatewayLogPath = join(testHome, "gateway.log");
 const caseLogsDir = join(testHome, "case-logs");
-const p03ImageFixturePath = join(__dirname, "fixtures", "understudy-ocr.png");
+const p03ImageFixturePath = join(__dirname, "fixtures", "understudy-sample-text.png");
 const authSeedAgentDir =
 	process.env.UNDERSTUDY_E2E_AUTH_SOURCE?.trim() || join(homedir(), ".understudy", "agent");
 const results = [];
@@ -273,7 +273,7 @@ try {
 
 	await runCase("P-03", "Multimodal File + Image", async () => {
 		const attachmentPath = join(testHome, "understudy-file-test.txt");
-		const imagePath = join(testHome, "understudy-ocr.png");
+		const imagePath = join(testHome, "understudy-sample-text.png");
 		await writeFile(attachmentPath, "Attachment marker: UNDERSTUDY-FILE-TEST-73\n", "utf8");
 		await copyFile(p03ImageFixturePath, imagePath);
 		const imageBytes = await readFile(imagePath);

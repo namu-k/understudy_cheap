@@ -7,6 +7,7 @@ import {
 	type TaughtTaskDraftParameter,
 	type TaughtTaskDraftStep,
 	type TaughtTaskExecutionRoute,
+	type TaughtTaskToolArguments,
 } from "./task-drafts.js";
 import { resolveUnderstudyHomeDir } from "./runtime-paths.js";
 import { containsPath, normalizePath } from "./workspace-context.js";
@@ -34,6 +35,7 @@ export interface WorkflowCrystallizationToolStep {
 	instruction: string;
 	summary?: string;
 	inputs?: Record<string, string>;
+	toolArgs?: TaughtTaskToolArguments;
 	verificationStatus?: string;
 	verificationSummary?: string;
 	uncertain?: boolean;
@@ -330,10 +332,11 @@ function compactToolChain(steps: TaughtTaskDraftStep[]): WorkflowCrystallization
 		index: step.index,
 		toolName: step.toolName,
 		route: step.route,
-		instruction: truncateText(step.instruction, 180),
-		...(step.summary ? { summary: truncateText(step.summary, 180) } : {}),
-		...(step.inputs ? { inputs: step.inputs } : {}),
-		...(step.verificationStatus ? { verificationStatus: step.verificationStatus } : {}),
+			instruction: truncateText(step.instruction, 180),
+			...(step.summary ? { summary: truncateText(step.summary, 180) } : {}),
+			...(step.inputs ? { inputs: step.inputs } : {}),
+			...(step.toolArgs ? { toolArgs: step.toolArgs } : {}),
+			...(step.verificationStatus ? { verificationStatus: step.verificationStatus } : {}),
 		...(step.verificationSummary ? { verificationSummary: truncateText(step.verificationSummary, 180) } : {}),
 		...(step.uncertain === true ? { uncertain: true } : {}),
 	}));

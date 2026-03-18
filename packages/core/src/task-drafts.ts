@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { resolveUnderstudyHomeDir } from "./runtime-paths.js";
-import { asRecord, asString } from "./value-helpers.js";
+import { asNumber, asRecord, asString } from "./value-helpers.js";
 import { containsPath, normalizePath } from "./workspace-context.js";
 
 const DEFAULT_MAX_PROMPT_DRAFTS = 3;
@@ -29,6 +29,86 @@ const TRACE_HINT_ARGUMENT_KEYS = new Set([
 	"app",
 	"scope",
 ]);
+const STEP_TOOL_ARG_RESERVED_KEYS = new Set([
+	...TRACE_VARIABLE_ARGUMENT_KEYS,
+	...TRACE_HINT_ARGUMENT_KEYS,
+	"id",
+	"index",
+	"route",
+	"toolName",
+	"instruction",
+	"summary",
+	"locationHint",
+	"windowTitle",
+	"captureMode",
+	"groundingMode",
+	"inputs",
+	"verificationStatus",
+	"verificationSummary",
+	"uncertain",
+]);
+
+export type TaughtTaskToolArgumentPrimitive = string | number | boolean;
+export type TaughtTaskToolArgumentObject = Record<string, TaughtTaskToolArgumentPrimitive>;
+export type TaughtTaskToolArgumentValue =
+	| TaughtTaskToolArgumentPrimitive
+	| TaughtTaskToolArgumentPrimitive[]
+	| TaughtTaskToolArgumentObject;
+export type TaughtTaskToolArguments = Record<string, TaughtTaskToolArgumentValue>;
+
+function normalizeToolArgumentPrimitive(value: unknown): TaughtTaskToolArgumentPrimitive | undefined {
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		return trimmed.length > 0 ? trimmed : undefined;
+	}
+	if (typeof value === "number" || typeof value === "boolean") {
+		return value;
+	}
+	return undefined;
+}
+
+function normalizeToolArgumentValue(value: unknown): TaughtTaskToolArgumentValue | undefined {
+	const primitive = normalizeToolArgumentPrimitive(value);
+	if (primitive !== undefined) {
+		return primitive;
+	}
+	if (Array.isArray(value)) {
+		const normalized = value
+			.map((entry) => normalizeToolArgumentPrimitive(entry))
+			.filter((entry): entry is TaughtTaskToolArgumentPrimitive => entry !== undefined);
+		return normalized.length > 0 ? normalized : undefined;
+	}
+	const record = asRecord(value);
+	if (!record) {
+		return undefined;
+	}
+	const entries = Object.entries(record)
+		.map(([key, entry]) => [key, normalizeToolArgumentPrimitive(entry)] as const)
+		.filter((entry): entry is [string, TaughtTaskToolArgumentPrimitive] => entry[1] !== undefined);
+	return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+export function normalizeTaughtTaskToolArguments(value: unknown): TaughtTaskToolArguments | undefined {
+	const record = asRecord(value);
+	if (!record) {
+		return undefined;
+	}
+	const entries = Object.entries(record)
+		.map(([key, entry]) => [key, normalizeToolArgumentValue(entry)] as const)
+		.filter((entry): entry is [string, TaughtTaskToolArgumentValue] => entry[1] !== undefined);
+	return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+export function extractTaughtTaskToolArgumentsFromRecord(
+	record: Record<string, unknown>,
+	reservedKeys: Iterable<string>,
+): TaughtTaskToolArguments | undefined {
+	const reserved = new Set(reservedKeys);
+	const filtered = Object.fromEntries(
+		Object.entries(record).filter(([key]) => !reserved.has(key)),
+	);
+	return normalizeTaughtTaskToolArguments(filtered);
+}
 
 export interface TaughtTaskDraftParameter {
 	name: string;
@@ -77,6 +157,7 @@ export interface TaughtTaskDraftStep {
 	groundingMode?: "single" | "complex";
 	locationHint?: string;
 	windowTitle?: string;
+	toolArgs?: TaughtTaskToolArguments;
 	verificationStatus?: string;
 	verificationSummary?: string;
 	uncertain?: boolean;
@@ -724,6 +805,7 @@ function scoreReferenceStepMatch(queryTokens: string[], step: TaughtTaskDraftSte
 		step.scope,
 		step.locationHint,
 		step.windowTitle,
+		step.toolArgs ? JSON.stringify(step.toolArgs) : undefined,
 	].filter(Boolean).join(" ")));
 	let score = 0;
 	for (const token of queryTokens) {
@@ -1022,6 +1104,23 @@ function extractStepInputs(args: Record<string, unknown>): Record<string, string
 	return Object.fromEntries(entries);
 }
 
+function extractStepToolArgs(args: Record<string, unknown>): TaughtTaskToolArguments | undefined {
+	return extractTaughtTaskToolArgumentsFromRecord(args, STEP_TOOL_ARG_RESERVED_KEYS);
+}
+
+function describeToolArgumentValue(value: TaughtTaskToolArgumentValue | undefined): string | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+	if (Array.isArray(value)) {
+		return value.join("+");
+	}
+	if (typeof value === "object") {
+		return JSON.stringify(value);
+	}
+	return String(value);
+}
+
 function buildInstruction(toolName: string, args: Record<string, unknown>, fallbackSummary?: string): string {
 	const target = asString(args.target);
 	const app = asString(args.app);
@@ -1030,8 +1129,17 @@ function buildInstruction(toolName: string, args: Record<string, unknown>, fallb
 	const suffix = [app, scope].filter(Boolean).join(" / ");
 	switch (toolName) {
 		case "gui_click":
+			if (asString(args.button) === "right") {
+				return `Right-click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
+			}
+			if ((asNumber(args.clicks) ?? 0) >= 2) {
+				return `Double-click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
+			}
 			if (asString(args.button) === "none") {
 				return `Hover ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
+			}
+			if ((asNumber(args.holdMs) ?? 0) > 0) {
+				return `Click and hold ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
 			}
 			return `Click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
 		case "gui_move":
@@ -1039,16 +1147,37 @@ function buildInstruction(toolName: string, args: Record<string, unknown>, fallb
 				return `Move the cursor to (${Math.round(args.x)}, ${Math.round(args.y)})${app ? ` in ${app}` : ""}.`;
 			}
 			return `Move the cursor${app ? ` in ${app}` : ""}.`;
-		case "gui_drag":
-			return `Drag ${target ?? "from the source"}${suffix ? ` in ${suffix}` : ""}.`;
+		case "gui_drag": {
+			const fromTarget = asString(args.fromTarget);
+			const toTarget = asString(args.toTarget);
+			const fromScope = asString(args.fromScope);
+			const toScope = asString(args.toScope);
+			const dragScope = fromScope && toScope && fromScope !== toScope
+				? ` from ${fromScope} to ${toScope}`
+				: (fromScope ?? toScope)
+					? ` in ${fromScope ?? toScope}`
+					: (suffix ? ` in ${suffix}` : "");
+			return `Drag ${fromTarget ?? "the source"} to ${toTarget ?? "the destination"}${dragScope}.`;
+		}
 		case "gui_scroll":
 			return `Scroll ${target ?? scope ?? "the interface"}${app ? ` in ${app}` : ""}.`;
 		case "gui_type":
-			return `Type ${value ? `"${truncateText(value, 72)}"` : "the required text"}${target ? ` into ${target}` : ""}.`;
-		case "gui_key":
-			return `Press ${value ? `${truncateText(value, 72)}` : "the key"}${app ? ` in ${app}` : ""}.`;
+			return `Type ${value ? `"${truncateText(value, 72)}"` : "the required text"}${target ? ` into ${target}` : ""}${args.submit === true ? ", then submit" : ""}.`;
+		case "gui_key": {
+			const key = asString(args.key);
+			const modifiers = Array.isArray(args.modifiers)
+				? args.modifiers
+					.map((entry) => asString(entry))
+					.filter((entry): entry is string => Boolean(entry))
+				: [];
+			const repeat = Math.max(1, Math.round(asNumber(args.repeat) ?? 1));
+			const keySequence = [...modifiers, key].filter(Boolean).join("+");
+			return `Press ${keySequence ? truncateText(keySequence, 72) : "the key"}${repeat > 1 ? ` ${repeat} times` : ""}${app ? ` in ${app}` : ""}.`;
+		}
 		case "gui_wait":
-			return `Wait for ${target ?? "the expected UI state"}${scope ? ` in ${scope}` : ""}.`;
+			return asString(args.state) === "disappear"
+				? `Wait for ${target ?? "the expected UI state"}${scope ? ` in ${scope}` : ""} to disappear.`
+				: `Wait for ${target ?? "the expected UI state"}${scope ? ` in ${scope}` : ""}.`;
 		case "gui_observe":
 			return `Observe the GUI${app ? ` in ${app}` : ""}${target ? ` for "${target}"` : ""}.`;
 		case "browser":
@@ -1121,24 +1250,27 @@ function resolvePairedSteps(toolTrace: Array<Record<string, unknown>>): TaughtTa
 		const callArgs = asRecord(pairedCall?.arguments) ?? {};
 		const name = asString(entry.name) ?? asString(pairedCall?.name) ?? "unknown";
 		const route = inferRoute(name, asString(entry.route));
-		const statusInfo = asRecord(entry.status);
-		const summary = asString(entry.textPreview) ?? asString(entry.error);
-		const instruction = buildInstruction(name, callArgs, summary);
-		index += 1;
-		steps.push({
-			id: `${name}-${index}`,
-			index,
+			const statusInfo = asRecord(entry.status);
+			const summary = asString(entry.textPreview) ?? asString(entry.error);
+			const instruction = buildInstruction(name, callArgs, summary);
+			const stepInputs = extractStepInputs(callArgs);
+			const stepToolArgs = extractStepToolArgs(callArgs);
+			index += 1;
+			steps.push({
+				id: `${name}-${index}`,
+				index,
 			toolName: name,
 			route,
 			instruction,
 			...(summary ? { summary } : {}),
-			...(asString(callArgs.target) ? { target: asString(callArgs.target) } : {}),
-			...(asString(callArgs.app) ? { app: asString(callArgs.app) } : {}),
-			...(asString(callArgs.scope) ? { scope: asString(callArgs.scope) } : {}),
-			...(extractStepInputs(callArgs) ? { inputs: extractStepInputs(callArgs) } : {}),
-			...(asString(statusInfo?.code) ? { verificationStatus: asString(statusInfo?.code) } : {}),
-			...(asString(statusInfo?.summary) ? { verificationSummary: asString(statusInfo?.summary) } : {}),
-			uncertain: classifyUncertainStep({ entry, statusInfo }),
+				...(asString(callArgs.target) ? { target: asString(callArgs.target) } : {}),
+				...(asString(callArgs.app) ? { app: asString(callArgs.app) } : {}),
+				...(asString(callArgs.scope) ? { scope: asString(callArgs.scope) } : {}),
+				...(stepInputs ? { inputs: stepInputs } : {}),
+				...(stepToolArgs ? { toolArgs: stepToolArgs } : {}),
+				...(asString(statusInfo?.code) ? { verificationStatus: asString(statusInfo?.code) } : {}),
+				...(asString(statusInfo?.summary) ? { verificationSummary: asString(statusInfo?.summary) } : {}),
+				uncertain: classifyUncertainStep({ entry, statusInfo }),
 		});
 	}
 
@@ -1443,6 +1575,7 @@ function normalizeSteps(values: Array<Partial<TaughtTaskDraftStep> | string> | u
 			index: next.length + 1,
 			id: `${base.toolName}-${next.length + 1}`,
 			instruction,
+			toolArgs: normalizeTaughtTaskToolArguments(value.toolArgs) ?? base.toolArgs,
 		});
 	}
 	return next.length > 0 ? next : baseSteps;
@@ -1981,6 +2114,14 @@ function buildPublishedSkillMarkdown(params: {
 					if (meta.length > 0) parts.push(`   ${meta.join(" | ")}`);
 					if (step.inputs && Object.keys(step.inputs).length > 0) {
 						parts.push(`   inputs: ${Object.entries(step.inputs).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ")}`);
+					}
+					if (step.toolArgs && Object.keys(step.toolArgs).length > 0) {
+						parts.push(
+							`   toolArgs: ${Object.entries(step.toolArgs)
+								.map(([key, value]) => `${key}=${describeToolArgumentValue(value)}`)
+								.filter((entry) => entry.length > 0)
+								.join(", ")}`,
+						);
 					}
 					if (step.verificationSummary) parts.push(`   verify: ${step.verificationSummary}`);
 					return parts;
@@ -2718,7 +2859,15 @@ export function buildTaughtTaskDraftPromptContent(
 					`    ${option.procedureStepId}. [${option.preference}:${formatStepRouteOptionTarget(option)}] ${option.instruction}`);
 			const steps = draft.steps
 				.slice(0, DEFAULT_MAX_PROMPT_STEPS)
-				.map((step) => `    ${step.index}. [${step.route}/${step.toolName}] ${step.instruction}`);
+				.map((step) => {
+					const toolArgsText = step.toolArgs && Object.keys(step.toolArgs).length > 0
+						? ` | toolArgs: ${Object.entries(step.toolArgs)
+							.map(([key, value]) => `${key}=${describeToolArgumentValue(value)}`)
+							.filter((entry) => entry.length > 0)
+							.join(", ")}`
+						: "";
+					return `    ${step.index}. [${step.route}/${step.toolName}] ${step.instruction}${toolArgsText}`;
+				});
 			return [
 					`- ${draft.title}`,
 					`  draft_id=${draft.id}`,

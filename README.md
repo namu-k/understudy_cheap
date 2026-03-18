@@ -301,7 +301,6 @@ understudy agent --message "..."  # Script/CI single-turn call (requires gateway
 | Chrome | [chrome.google.com](https://www.google.com/chrome/) | Extension-relay browser mode — access logged-in tabs. Without it, falls back to Playwright managed browser |
 | Playwright | `pnpm exec playwright install chromium` | Managed browser for the `browser` tool. Installed as optional dependency, needs browser binary download |
 | ffmpeg + ffprobe | `brew install ffmpeg` | Video analysis for teach-by-demonstration evidence packs |
-| tesseract | `brew install tesseract` | On-device OCR for `vision_read`. Without it, OCR is skipped gracefully |
 | signal-cli | `brew install signal-cli` | Signal messaging channel |
 
 ## Platform Support
@@ -366,7 +365,7 @@ Full screenshot-grounded GUI automation on macOS depends on the native helper pl
 
 > Both permissions must be granted to the terminal application that runs `understudy`, not to Understudy itself.
 >
-> If GUI behavior still looks partial after granting permissions, run `understudy doctor --deep` to check the native helper, grounding availability, OCR, browser runtime, and teach-analysis dependencies.
+> If GUI behavior still looks partial after granting permissions, run `understudy doctor --deep` to check the native helper, grounding availability, browser runtime, and teach-analysis dependencies.
 
 ## Skills
 

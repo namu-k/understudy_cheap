@@ -294,11 +294,11 @@ export function buildCapabilitySections(availableTools: Set<string>, isMinimal: 
 				"- When a GUI action fails or misfires, revise the next target and scope using the latest screenshot evidence instead of repeating the same vague description.",
 				"- For menus and popovers, prefer a follow-up `gui_observe` or `gui_wait` when the visible confirmation may take a moment.",
 			];
-		if (availableTools.has("vision_read")) {
-			guiActionPatterns.push(
-				"- `gui_observe` (screenshot mode) -> `vision_read` when you need OCR text or a second focused visual interpretation of the captured UI.",
-			);
-		} else {
+			if (availableTools.has("vision_read")) {
+				guiActionPatterns.push(
+					"- `gui_observe` (screenshot mode) -> `vision_read` when you want a second focused visual interpretation of the captured UI.",
+				);
+			} else {
 			guiActionPatterns.push(
 				"- Use `gui_observe` in screenshot mode when the current desktop/app state itself must be captured as an image artifact.",
 			);
@@ -330,11 +330,11 @@ export function buildCapabilitySections(availableTools: Set<string>, isMinimal: 
 					"- Enable base64 output only when downstream processing truly needs raw image payload",
 				]
 				: []),
-			...(availableTools.has("vision_read")
-				? [
-					"- Use `vision_read` for screenshots or photos when you need OCR text, UI interpretation, or a focused read of visible content",
-					"- Pass a short `focus` hint when the user cares about a specific region or question",
-				]
+				...(availableTools.has("vision_read")
+					? [
+						"- Use `vision_read` for screenshots or photos when you need UI interpretation or a focused read of visible content",
+						"- Pass a short `focus` hint when the user cares about a specific region or question",
+					]
 				: []),
 			"",
 		);

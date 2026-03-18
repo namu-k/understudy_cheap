@@ -195,7 +195,7 @@ describe("buildUnderstudySystemPrompt", () => {
 			toolNames: ["vision_read"],
 		});
 
-		expect(prompt).toContain("- vision_read: Inspect screenshots or photos, attach the image, and extract OCR text when available");
+		expect(prompt).toContain("- vision_read: Inspect screenshots or photos and attach the image for focused visual reasoning");
 	});
 
 	it("includes runtime info", () => {

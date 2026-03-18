@@ -140,7 +140,7 @@ const CORE_TOOL_SUMMARIES: Record<string, string> = {
 	web_search: "Search the web for current information",
 	web_fetch: "Fetch and extract readable content from a URL",
 	image: "Inspect image metadata and optionally return base64 image content",
-	vision_read: "Inspect screenshots or photos, attach the image, and extract OCR text when available",
+	vision_read: "Inspect screenshots or photos and attach the image for focused visual reasoning",
 	pdf: "Inspect PDF metadata and extract text",
 	browser: "Control a browser for navigation, AI/ARIA snapshots, ref-based interaction, waits, uploads, and screenshots",
 	gui_observe: "Capture the current GUI state as a visual computer-use snapshot, optionally ground a target, or take a screenshot",

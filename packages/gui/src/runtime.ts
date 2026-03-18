@@ -63,11 +63,20 @@ const COMMON_KEY_CODES: Record<string, number> = {
 	esc: 53,
 	delete: 51,
 	backspace: 51,
+	home: 115,
+	pageup: 116,
+	pagedown: 121,
+	end: 119,
 	up: 126,
+	arrowup: 126,
 	down: 125,
+	arrowdown: 125,
 	left: 123,
+	arrowleft: 123,
 	right: 124,
+	arrowright: 124,
 	space: 49,
+	spacebar: 49,
 };
 
 interface GuiNativeActionResult {
@@ -309,6 +318,18 @@ function describeWindowSelection(windowSelector: GuiWindowSelector | undefined):
 		windowSelector.index ? `window #${windowSelector.index}` : undefined,
 	].filter(Boolean);
 	return parts.length > 0 ? parts.join(", ") : undefined;
+}
+
+function buildWindowSelectionEnv(windowSelection: GuiWindowSelector | undefined): Record<string, string | undefined> {
+	return {
+		UNDERSTUDY_GUI_WINDOW_TITLE: windowSelection?.title,
+		UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS: windowSelection?.titleContains,
+		UNDERSTUDY_GUI_WINDOW_INDEX: windowSelection?.index ? String(windowSelection.index) : undefined,
+	};
+}
+
+function normalizeHotkeyKeyName(key: string): string {
+	return key.trim().toLowerCase().replace(/[\s_-]+/g, "");
 }
 
 function normalizeRect(rect: GuiRect): GuiRect {
@@ -833,8 +854,65 @@ async function runNativeHelper(params: {
 	}
 }
 
+const WINDOW_SELECTION_SCRIPT_HELPERS = String.raw`
+on textContains(haystack, needle)
+	if needle is "" then return true
+	ignoring case
+		return (offset of needle in haystack) is not 0
+	end ignoring
+end textContains
+
+on matchingWindows(targetProc, exactTitle, titleContains)
+	set matches to {}
+	repeat with candidateWindow in windows of targetProc
+		set windowTitle to ""
+		try
+			set windowTitle to name of candidateWindow as text
+		end try
+		set exactMatch to true
+		if exactTitle is not "" then
+			ignoring case
+				set exactMatch to windowTitle is exactTitle
+			end ignoring
+		end if
+		set containsMatch to my textContains(windowTitle, titleContains)
+		if exactMatch and containsMatch then set end of matches to candidateWindow
+	end repeat
+	return matches
+end matchingWindows
+
+on focusRequestedWindow(targetProc, exactTitle, titleContains, windowIndexText)
+	if exactTitle is "" and titleContains is "" and windowIndexText is "" then return
+	set matches to my matchingWindows(targetProc, exactTitle, titleContains)
+	if (count of matches) is 0 then error "Window not found for the requested selection."
+	set targetWindow to item 1 of matches
+	if windowIndexText is not "" then
+		set requestedIndex to windowIndexText as integer
+		if requestedIndex < 1 or requestedIndex > (count of matches) then error "Requested window index is out of range."
+		set targetWindow to item requestedIndex of matches
+	end if
+	tell application "System Events"
+		try
+			tell targetWindow to perform action "AXRaise"
+		end try
+		try
+			tell targetWindow to set value of attribute "AXMain" to true
+		end try
+		try
+			tell targetWindow to set value of attribute "AXFocused" to true
+		end try
+	end tell
+	delay 0.1
+end focusRequestedWindow
+`;
+
 const TYPE_SCRIPT = String.raw`
+${WINDOW_SELECTION_SCRIPT_HELPERS}
+
 set requestedApp to system attribute "UNDERSTUDY_GUI_APP"
+set requestedWindowTitle to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE"
+set requestedWindowTitleContains to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS"
+set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
 set inputText to system attribute "UNDERSTUDY_GUI_TEXT"
 set replaceText to system attribute "UNDERSTUDY_GUI_REPLACE"
 set submitText to system attribute "UNDERSTUDY_GUI_SUBMIT"
@@ -870,6 +948,7 @@ tell application "System Events"
 	else
 		set targetProc to first application process whose frontmost is true
 	end if
+	my focusRequestedWindow(targetProc, requestedWindowTitle, requestedWindowTitleContains, requestedWindowIndex)
 
 	if replaceText is "1" then
 		keystroke "a" using command down
@@ -881,6 +960,8 @@ end tell
 `;
 
 const HOTKEY_SCRIPT = String.raw`
+${WINDOW_SELECTION_SCRIPT_HELPERS}
+
 on buildModifierList(rawText)
 	set modifierList to {}
 	if rawText contains "command" then copy command down to end of modifierList
@@ -891,6 +972,9 @@ on buildModifierList(rawText)
 end buildModifierList
 
 set requestedApp to system attribute "UNDERSTUDY_GUI_APP"
+set requestedWindowTitle to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE"
+set requestedWindowTitleContains to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS"
+set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
 set keyText to system attribute "UNDERSTUDY_GUI_KEY"
 set keyCodeText to system attribute "UNDERSTUDY_GUI_KEY_CODE"
 set modifiersText to system attribute "UNDERSTUDY_GUI_MODIFIERS"
@@ -908,7 +992,10 @@ tell application "System Events"
 		set targetProc to application process requestedApp
 		set frontmost of targetProc to true
 		delay 0.1
+	else
+		set targetProc to first application process whose frontmost is true
 	end if
+	my focusRequestedWindow(targetProc, requestedWindowTitle, requestedWindowTitleContains, requestedWindowIndex)
 
 	if keyCodeText is not "" then
 		repeat repeatCount times
@@ -951,9 +1038,7 @@ async function resolveCaptureContext(
 		env: {
 			UNDERSTUDY_GUI_APP: appName?.trim(),
 			UNDERSTUDY_GUI_ACTIVATE_APP: options.activateApp === false ? "0" : "1",
-			UNDERSTUDY_GUI_WINDOW_TITLE: windowSelection?.title,
-			UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS: windowSelection?.titleContains,
-			UNDERSTUDY_GUI_WINDOW_INDEX: windowSelection?.index ? String(windowSelection.index) : undefined,
+			...buildWindowSelectionEnv(windowSelection),
 		},
 		failureMessage:
 			"macOS native GUI capture helper failed. Ensure the required macOS GUI control permissions are granted.",
@@ -1250,8 +1335,13 @@ async function performScroll(
 }
 
 async function performType(params: GuiTypeParams): Promise<GuiNativeActionResult> {
+	const windowSelection = resolveWindowSelection({
+		windowTitle: params.windowTitle,
+		windowSelector: params.windowSelector,
+	});
 	const actionKind = await runAppleScript(TYPE_SCRIPT, {
 		UNDERSTUDY_GUI_APP: params.app?.trim(),
+		...buildWindowSelectionEnv(windowSelection),
 		UNDERSTUDY_GUI_TEXT: params.value,
 		UNDERSTUDY_GUI_REPLACE: params.replace === false ? "0" : "1",
 		UNDERSTUDY_GUI_SUBMIT: params.submit ? "1" : "0",
@@ -1263,10 +1353,15 @@ async function performHotkey(
 	params: GuiKeyParams,
 	repeat: number = 1,
 ): Promise<GuiNativeActionResult> {
-	const normalizedKey = params.key.trim().toLowerCase();
+	const windowSelection = resolveWindowSelection({
+		windowTitle: params.windowTitle,
+		windowSelector: params.windowSelector,
+	});
+	const normalizedKey = normalizeHotkeyKeyName(params.key);
 	const keyCode = COMMON_KEY_CODES[normalizedKey];
 	const actionKind = await runAppleScript(HOTKEY_SCRIPT, {
 		UNDERSTUDY_GUI_APP: params.app?.trim(),
+		...buildWindowSelectionEnv(windowSelection),
 		UNDERSTUDY_GUI_KEY: keyCode ? "" : params.key,
 		UNDERSTUDY_GUI_KEY_CODE: keyCode ? String(keyCode) : "",
 		UNDERSTUDY_GUI_MODIFIERS: (params.modifiers ?? [])
@@ -1849,16 +1944,16 @@ export class ComputerUseGuiRuntime {
 			includeCursor: !params.target?.trim(),
 		});
 		try {
-			const image = screenshotArtifactToImage(artifact);
+			const image = params.returnImage === false ? undefined : screenshotArtifactToImage(artifact);
 			const observation = createScreenshotObservation(appName, artifact.metadata.windowTitle);
 			if (!params.target?.trim()) {
 				return buildGuiResult({
 					text: [
-						appName
-							? `Captured a visual GUI snapshot for ${appName}.`
-							: "Captured the current desktop state for visual GUI inspection.",
-						"Use the attached screenshot to inspect the scene or call vision_read for OCR-heavy questions.",
-					].join("\n"),
+							appName
+								? `Captured a visual GUI snapshot for ${appName}.`
+								: "Captured the current desktop state for visual GUI inspection.",
+							"Use the attached screenshot to inspect the scene or call vision_read for a second focused read.",
+						].join("\n"),
 					observation,
 					status: "observed",
 					summary: "Visual GUI snapshot captured.",
