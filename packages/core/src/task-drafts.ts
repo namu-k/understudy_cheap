@@ -1030,27 +1030,27 @@ function buildInstruction(toolName: string, args: Record<string, unknown>, fallb
 	const suffix = [app, scope].filter(Boolean).join(" / ");
 	switch (toolName) {
 		case "gui_click":
+			if (asString(args.button) === "none") {
+				return `Hover ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
+			}
 			return `Click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
-		case "gui_right_click":
-			return `Right click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
-		case "gui_double_click":
-			return `Double click ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
-		case "gui_hover":
-			return `Hover ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
-		case "gui_click_and_hold":
-			return `Click and hold ${target ?? "the target"}${suffix ? ` in ${suffix}` : ""}.`;
+		case "gui_move":
+			if (typeof args.x === "number" && typeof args.y === "number") {
+				return `Move the cursor to (${Math.round(args.x)}, ${Math.round(args.y)})${app ? ` in ${app}` : ""}.`;
+			}
+			return `Move the cursor${app ? ` in ${app}` : ""}.`;
 		case "gui_drag":
 			return `Drag ${target ?? "from the source"}${suffix ? ` in ${suffix}` : ""}.`;
 		case "gui_scroll":
 			return `Scroll ${target ?? scope ?? "the interface"}${app ? ` in ${app}` : ""}.`;
 		case "gui_type":
 			return `Type ${value ? `"${truncateText(value, 72)}"` : "the required text"}${target ? ` into ${target}` : ""}.`;
-		case "gui_keypress":
+		case "gui_key":
 			return `Press ${value ? `${truncateText(value, 72)}` : "the key"}${app ? ` in ${app}` : ""}.`;
-		case "gui_hotkey":
-			return `Send shortcut ${value ? `${truncateText(value, 72)}` : "the keyboard shortcut"}${app ? ` in ${app}` : ""}.`;
 		case "gui_wait":
 			return `Wait for ${target ?? "the expected UI state"}${scope ? ` in ${scope}` : ""}.`;
+		case "gui_observe":
+			return `Observe the GUI${app ? ` in ${app}` : ""}${target ? ` for "${target}"` : ""}.`;
 		case "browser":
 			return fallbackSummary ?? `Use browser automation${target ? ` for ${target}` : ""}.`;
 		case "web_fetch":
@@ -1990,7 +1990,7 @@ function buildPublishedSkillMarkdown(params: {
 			: []),
 		"## Failure Policy",
 		"",
-		"- Use `gui_read` before each `gui_click`/`gui_type` to confirm the target is visible on the current surface.",
+		"- Use `gui_observe` before each `gui_click`/`gui_type` to confirm the target is visible on the current surface.",
 		"- Use `groundingMode: \"complex\"` after any grounding failure or when the UI is dense/ambiguous.",
 		"- Use `captureMode: \"display\"` for menu bar, Dock, or cross-window operations; `captureMode: \"window\"` for in-app work.",
 		"- Describe targets using visible text labels from the current screenshot, not memorized positions from the teach recording.",

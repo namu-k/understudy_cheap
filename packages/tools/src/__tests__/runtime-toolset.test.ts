@@ -55,19 +55,14 @@ describe("createRuntimeToolset", () => {
 
 		for (const expected of [
 			"runtime_status",
-			"gui_read",
+			"gui_observe",
 			"gui_click",
-			"gui_right_click",
-			"gui_double_click",
-			"gui_hover",
-			"gui_click_and_hold",
 			"gui_drag",
 			"gui_scroll",
 			"gui_type",
-			"gui_keypress",
-			"gui_hotkey",
-			"gui_screenshot",
+			"gui_key",
 			"gui_wait",
+			"gui_move",
 			"memory_search",
 			"memory_get",
 			"memory_manage",
@@ -145,34 +140,28 @@ describe("createRuntimeToolset", () => {
 						nativeHelperAvailable: true,
 						screenCaptureAvailable: true,
 						inputAvailable: true,
-						enabledToolNames: ["gui_read", "gui_scroll", "gui_type", "gui_keypress", "gui_hotkey", "gui_screenshot"],
-						disabledToolNames: ["gui_click", "gui_right_click", "gui_double_click", "gui_hover", "gui_click_and_hold", "gui_drag", "gui_wait"],
+						enabledToolNames: ["gui_observe", "gui_scroll", "gui_type", "gui_key", "gui_move"],
+						disabledToolNames: ["gui_click", "gui_drag", "gui_wait"],
 						toolAvailability: {
-						gui_read: { enabled: true, targetlessOnly: true },
+						gui_observe: { enabled: true, targetlessOnly: true },
 						gui_click: { enabled: false, reason: "grounding unavailable" },
-						gui_right_click: { enabled: false, reason: "grounding unavailable" },
-						gui_double_click: { enabled: false, reason: "grounding unavailable" },
-						gui_hover: { enabled: false, reason: "grounding unavailable" },
-						gui_click_and_hold: { enabled: false, reason: "grounding unavailable" },
 						gui_drag: { enabled: false, reason: "grounding unavailable" },
 						gui_scroll: { enabled: true, targetlessOnly: true },
 						gui_type: { enabled: true, targetlessOnly: true },
-						gui_keypress: { enabled: true },
-						gui_hotkey: { enabled: true },
-						gui_screenshot: { enabled: true, targetlessOnly: true },
+						gui_key: { enabled: true },
 						gui_wait: { enabled: false, reason: "grounding unavailable" },
+						gui_move: { enabled: true },
 					},
 				}),
 			} as any,
 		});
 		const names = tools.map((tool) => tool.name);
 
-		expect(names).toContain("gui_read");
+		expect(names).toContain("gui_observe");
 		expect(names).toContain("gui_scroll");
 		expect(names).toContain("gui_type");
-		expect(names).toContain("gui_keypress");
-		expect(names).toContain("gui_hotkey");
-		expect(names).toContain("gui_screenshot");
+		expect(names).toContain("gui_key");
+		expect(names).toContain("gui_move");
 		expect(names).not.toContain("gui_click");
 		expect(names).not.toContain("gui_drag");
 		expect(names).not.toContain("gui_wait");
@@ -234,7 +223,7 @@ describe("createRuntimeToolset", () => {
 		expect(catalog.summary.total).toBe(catalog.tools.length);
 		expect(catalog.summary.byCategory).toContainEqual({
 			id: "gui",
-			count: 13,
+			count: 8,
 		});
 		expect(catalog.summary.byCategory).toContainEqual({
 			id: "system",

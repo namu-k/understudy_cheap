@@ -54,7 +54,7 @@ const GuiWindowSelectionFields = {
 	windowSelector: Type.Optional(GuiWindowSelectorSchema),
 };
 
-const GuiReadSchema = Type.Object({
+const GuiObserveSchema = Type.Object({
 	app: Type.Optional(Type.String({ description: "Optional macOS application name to observe. Defaults to the frontmost app." })),
 	target: Type.Optional(Type.String({ description: `Optional semantic target to resolve within the observed UI. Quote visible text when present, e.g. 'button labeled "Submit"', 'sidebar item "Inbox"', 'the row containing "2024-03-11"'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
 	groundingMode: Type.Optional(Type.Union([
@@ -68,6 +68,7 @@ const GuiReadSchema = Type.Object({
 		Type.Literal("display"),
 	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
 	...GuiWindowSelectionFields,
+	returnImage: Type.Optional(Type.Boolean({ description: "Whether to return the screenshot image. Default: true." })),
 });
 
 const GuiClickSchema = Type.Object({
@@ -84,72 +85,14 @@ const GuiClickSchema = Type.Object({
 		Type.Literal("display"),
 	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
 	...GuiWindowSelectionFields,
-});
-
-const GuiRightClickSchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to act on. Defaults to the frontmost app." })),
-	target: Type.Optional(Type.String({ description: `Semantic GUI target to right-click. The context menu you get depends on WHAT you right-click, so be precise. Quote visible text, e.g. 'the row containing "report.pdf"', 'the selected word "implement" in the editor', 'canvas item labeled "Layer 1"'. For empty/blank areas: 'the empty desktop area', 'blank area below the last file in the folder', 'the empty canvas area'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
-	groundingMode: Type.Optional(Type.Union([
-		Type.Literal("single"),
-		Type.Literal("complex"),
-	], { description: GUI_GROUNDING_MODE_DESCRIPTION })),
-	locationHint: Type.Optional(Type.String({ description: GUI_LOCATION_HINT_DESCRIPTION })),
-	scope: Type.Optional(Type.String({ description: GUI_SCOPE_DESCRIPTION })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
-});
-
-const GuiDoubleClickSchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to act on. Defaults to the frontmost app." })),
-	target: Type.Optional(Type.String({ description: `Semantic GUI target to double-click. Quote visible text, e.g. 'folder labeled "Downloads"', 'file "report.pdf"', 'cell showing "$150.00"', 'word "hello" in the document'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
-	groundingMode: Type.Optional(Type.Union([
-		Type.Literal("single"),
-		Type.Literal("complex"),
-	], { description: GUI_GROUNDING_MODE_DESCRIPTION })),
-	locationHint: Type.Optional(Type.String({ description: GUI_LOCATION_HINT_DESCRIPTION })),
-	scope: Type.Optional(Type.String({ description: GUI_SCOPE_DESCRIPTION })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
-});
-
-const GuiHoverSchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to act on. Defaults to the frontmost app." })),
-	target: Type.Optional(Type.String({ description: `Semantic GUI target to hover. Quote visible text or describe icon, e.g. 'info icon button next to "Storage"', 'toolbar button labeled "Format"', 'the dot on the timeline at "March 2024"'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
-	groundingMode: Type.Optional(Type.Union([
-		Type.Literal("single"),
-		Type.Literal("complex"),
-	], { description: GUI_GROUNDING_MODE_DESCRIPTION })),
-	locationHint: Type.Optional(Type.String({ description: GUI_LOCATION_HINT_DESCRIPTION })),
-	scope: Type.Optional(Type.String({ description: GUI_SCOPE_DESCRIPTION })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
-	settleMs: Type.Optional(Type.Number({ description: "Optional hover settle time in milliseconds before the tool returns. Useful for tooltips or hover-only menus. Default: 200." })),
-});
-
-const GuiClickAndHoldSchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to act on. Defaults to the frontmost app." })),
-	target: Type.Optional(Type.String({ description: `Semantic GUI target to click and hold. Quote visible text, e.g. 'button labeled "Record"', 'tab titled "Untitled"', 'slider handle on the "Volume" slider'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
-	groundingMode: Type.Optional(Type.Union([
-		Type.Literal("single"),
-		Type.Literal("complex"),
-	], { description: GUI_GROUNDING_MODE_DESCRIPTION })),
-	locationHint: Type.Optional(Type.String({ description: GUI_LOCATION_HINT_DESCRIPTION })),
-	scope: Type.Optional(Type.String({ description: GUI_SCOPE_DESCRIPTION })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
-	holdDurationMs: Type.Optional(Type.Number({ description: "Optional press-and-hold duration in milliseconds before releasing. Default: 650." })),
+	button: Type.Optional(Type.Union([
+		Type.Literal("left"),
+		Type.Literal("right"),
+		Type.Literal("none"),
+	], { description: 'Mouse button. "left" for normal click, "right" for context menu, "none" for hover only. Default: "left".' })),
+	clicks: Type.Optional(Type.Number({ description: "Number of clicks. Use 2 for double-click. Default: 1." })),
+	holdMs: Type.Optional(Type.Number({ description: "Press-and-hold duration in milliseconds before releasing. Use for long-press affordances." })),
+	settleMs: Type.Optional(Type.Number({ description: "Hover settle time in milliseconds (only used when button is \"none\"). Default: 200." })),
 });
 
 const GuiDragSchema = Type.Object({
@@ -219,10 +162,10 @@ const GuiTypeSchema = Type.Object({
 	submit: Type.Optional(Type.Boolean({ description: "Whether to press Return after typing." })),
 });
 
-const GuiKeypressSchema = Type.Object({
+const GuiKeySchema = Type.Object({
 	app: Type.Optional(Type.String({ description: "Optional macOS application name to activate before pressing the key." })),
-	key: Type.String({ description: 'Single key to press, for example "Enter", "Tab", "Escape", "Space", "Backspace", "Delete", "ArrowDown", "ArrowUp", "PageDown", "Home", "End". Use gui_keypress for standalone keys; use gui_hotkey for modifier combos like Command+S.' }),
-	modifiers: Type.Optional(Type.Array(Type.String({ description: 'Optional modifier names such as "shift", "option", "control", or "command".' }))),
+	key: Type.String({ description: 'Key to press. Examples: "Enter", "Tab", "Escape", "Space", "Backspace", "Delete", "ArrowDown", "s" (for Cmd+S when combined with modifiers).' }),
+	modifiers: Type.Optional(Type.Array(Type.String({ description: 'Modifier names such as "command", "shift", "option", or "control".' }))),
 	repeat: Type.Optional(Type.Number({ description: "How many times to press the key. Default: 1." })),
 	captureMode: Type.Optional(Type.Union([
 		Type.Literal("window"),
@@ -231,32 +174,10 @@ const GuiKeypressSchema = Type.Object({
 	...GuiWindowSelectionFields,
 });
 
-const GuiHotkeySchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to activate before sending the hotkey." })),
-	key: Type.String({ description: 'Key to send with modifiers, for example "s" (for Command+S), "n", "p", or "Enter".' }),
-	modifiers: Type.Optional(Type.Array(Type.String({ description: 'Modifier name such as "command", "shift", "option", or "control".' }))),
-	repeat: Type.Optional(Type.Number({ description: "How many times to send the shortcut. Default: 1." })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
-});
-
-const GuiScreenshotSchema = Type.Object({
-	app: Type.Optional(Type.String({ description: "Optional macOS application name to activate before capturing the screenshot." })),
-	target: Type.Optional(Type.String({ description: `Optional semantic target to ground on the captured screenshot. Quote visible text, e.g. 'window titled "Compose"', 'panel labeled "Inspector"', 'the dialog showing "Export Options"'. ${GUI_TARGET_DESCRIPTION_SUFFIX}` })),
-	groundingMode: Type.Optional(Type.Union([
-		Type.Literal("single"),
-		Type.Literal("complex"),
-	], { description: GUI_GROUNDING_MODE_DESCRIPTION })),
-	locationHint: Type.Optional(Type.String({ description: GUI_LOCATION_HINT_DESCRIPTION })),
-	scope: Type.Optional(Type.String({ description: GUI_SCOPE_DESCRIPTION })),
-	captureMode: Type.Optional(Type.Union([
-		Type.Literal("window"),
-		Type.Literal("display"),
-	], { description: GUI_CAPTURE_MODE_DESCRIPTION })),
-	...GuiWindowSelectionFields,
+const GuiMoveSchema = Type.Object({
+	x: Type.Number({ description: "Absolute display X coordinate to move the cursor to." }),
+	y: Type.Number({ description: "Absolute display Y coordinate to move the cursor to." }),
+	app: Type.Optional(Type.String({ description: "Optional macOS application name to activate before moving." })),
 });
 
 const GuiWaitSchema = Type.Object({
@@ -281,19 +202,14 @@ const GuiWaitSchema = Type.Object({
 	intervalMs: Type.Optional(Type.Number({ description: "Polling interval in milliseconds." })),
 });
 
-type GuiReadParams = Static<typeof GuiReadSchema>;
+type GuiObserveParams = Static<typeof GuiObserveSchema>;
 type GuiClickParams = Static<typeof GuiClickSchema>;
-type GuiRightClickParams = Static<typeof GuiRightClickSchema>;
-type GuiDoubleClickParams = Static<typeof GuiDoubleClickSchema>;
-type GuiHoverParams = Static<typeof GuiHoverSchema>;
-type GuiClickAndHoldParams = Static<typeof GuiClickAndHoldSchema>;
 type GuiDragParams = Static<typeof GuiDragSchema>;
 type GuiScrollParams = Static<typeof GuiScrollSchema>;
 type GuiTypeParams = Static<typeof GuiTypeSchema>;
-type GuiKeypressParams = Static<typeof GuiKeypressSchema>;
-type GuiHotkeyParams = Static<typeof GuiHotkeySchema>;
-type GuiScreenshotParams = Static<typeof GuiScreenshotSchema>;
+type GuiKeyParams = Static<typeof GuiKeySchema>;
 type GuiWaitParams = Static<typeof GuiWaitSchema>;
+type GuiMoveParams = Static<typeof GuiMoveSchema>;
 
 function withGuiDetails(result: GuiActionResult): Record<string, unknown> {
 	return {
@@ -435,38 +351,28 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 }
 
 type GuiRuntimeMethod =
-	| "read"
+	| "observe"
 	| "click"
-	| "rightClick"
-	| "doubleClick"
-	| "hover"
-	| "clickAndHold"
 	| "drag"
 	| "scroll"
 	| "type"
-	| "keypress"
-	| "hotkey"
-	| "screenshot"
-	| "wait";
+	| "key"
+	| "wait"
+	| "move";
 
 type GuiRuntimeWithCapabilities = ComputerUseGuiRuntime & {
 	describeCapabilities?(platform?: NodeJS.Platform): GuiRuntimeCapabilitySnapshot;
 };
 
 interface GuiToolRuntimeMap {
-	read: (params: GuiReadParams, signal?: AbortSignal) => Promise<GuiActionResult>;
+	observe: (params: GuiObserveParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 	click: (params: GuiClickParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	rightClick: (params: GuiRightClickParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	doubleClick: (params: GuiDoubleClickParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	hover: (params: GuiHoverParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	clickAndHold: (params: GuiClickAndHoldParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 	drag: (params: GuiDragParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 	scroll: (params: GuiScrollParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 	type: (params: GuiTypeParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	keypress: (params: GuiKeypressParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	hotkey: (params: GuiHotkeyParams, signal?: AbortSignal) => Promise<GuiActionResult>;
-	screenshot: (params: GuiScreenshotParams, signal?: AbortSignal) => Promise<GuiActionResult>;
+	key: (params: GuiKeyParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 	wait: (params: GuiWaitParams, signal?: AbortSignal) => Promise<GuiActionResult>;
+	move: (params: GuiMoveParams, signal?: AbortSignal) => Promise<GuiActionResult>;
 }
 
 function buildGuiProgressResult(text: string, details: Record<string, unknown> = {}): AgentToolResult<unknown> {
@@ -580,14 +486,12 @@ function buildUnavailableGuiToolResult(
 
 function buildTargetlessOnlyReason(toolName: GuiToolName): string {
 	switch (toolName) {
-		case "gui_read":
+		case "gui_observe":
 			return "Configure GUI grounding to resolve a visual target, or omit `target` and capture the current surface.";
 		case "gui_scroll":
 			return "Configure GUI grounding to scroll a named visual target, or omit `target` and scroll the current surface.";
 		case "gui_type":
 			return "Configure GUI grounding to resolve an input target, or omit `target` and type into the currently focused control.";
-		case "gui_screenshot":
-			return "Configure GUI grounding to resolve a screenshot focus target, or omit `target` and capture the current surface.";
 		default:
 			return "Configure GUI grounding before using this GUI tool with a visual target.";
 	}
@@ -690,19 +594,20 @@ function createGuiTool<TSchemaType extends TSchema>(
 type GuiToolFactory = (runtime: GuiRuntimeWithCapabilities) => AgentTool<any>;
 const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> = [
 	{
-		name: "gui_read",
+		name: "gui_observe",
 		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_read",
-			label: "GUI Read",
+			name: "gui_observe",
+			label: "GUI Observe",
 			description:
-				"Capture the current GUI state as a visual computer-use snapshot and optionally ground a target on the screenshot. " +
-				"Use this for generic GUI scenes that are not best served by the browser surface.",
-			parameters: GuiReadSchema,
-			method: "read",
-			progressLabel: "GUI read",
-			errorLabel: "GUI read",
-			actionTarget: (params: GuiReadParams) => params.target,
-			guard: resolveTargetlessOnlyGuard("gui_read") as CapabilityGuard<GuiReadParams>,
+				"Capture the current GUI state as a visual snapshot. Optionally ground a target. " +
+				"Use when you need to see what is on screen.",
+			parameters: GuiObserveSchema,
+			method: "observe",
+			progressLabel: "GUI observe",
+			errorLabel: "GUI observe",
+			actionTarget: (params: GuiObserveParams) => params.target,
+			guard: resolveTargetlessOnlyGuard("gui_observe") as CapabilityGuard<GuiObserveParams>,
+			toResult: toScreenshotToolResult,
 			allowMidflightAbort: true,
 		}),
 	},
@@ -711,10 +616,10 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 		create: (runtime) => createGuiTool(runtime, {
 			name: "gui_click",
 			label: "GUI Click",
-				description:
-					"Click a visually grounded clickable or selectable GUI control on the current desktop or app without asking the model for coordinates. " +
-					"Name the control itself in `target`, not the surrounding region. " +
-					"Use `groundingMode: \"single\"` for straightforward targets and `groundingMode: \"complex\"` when the visible target is ambiguous, high-risk, or a prior attempt misfired.",
+			description:
+				"Click a visually grounded GUI target. " +
+				"Use `button` to choose left/right/none(hover), `clicks: 2` for double-click, `holdMs` for press-and-hold. " +
+				"Default is a single left click.",
 			parameters: GuiClickSchema,
 			method: "click",
 			progressLabel: "GUI click",
@@ -723,74 +628,13 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 		}),
 	},
 	{
-		name: "gui_right_click",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_right_click",
-			label: "GUI Right Click",
-				description:
-					"Right click a visually grounded GUI target to open a context menu. " +
-					"The resulting menu depends on WHAT you right-click (file, text selection, blank area, etc.). " +
-					"After right-clicking, use `gui_read` to see the context menu, then `gui_click` on the desired menu item.",
-			parameters: GuiRightClickSchema,
-			method: "rightClick",
-			progressLabel: "GUI right click",
-			errorLabel: "GUI right click",
-			actionTarget: (params: GuiRightClickParams) => params.target,
-		}),
-	},
-	{
-		name: "gui_double_click",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_double_click",
-			label: "GUI Double Click",
-				description:
-					"Double click a visually grounded GUI target. " +
-					"Common uses: open a file or folder, select a word in text, activate rename mode, expand a tree node, open an item in icon view.",
-			parameters: GuiDoubleClickSchema,
-			method: "doubleClick",
-			progressLabel: "GUI double click",
-			errorLabel: "GUI double click",
-			actionTarget: (params: GuiDoubleClickParams) => params.target,
-		}),
-	},
-	{
-		name: "gui_hover",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_hover",
-			label: "GUI Hover",
-			description:
-				"Move the pointer over a visually grounded GUI target without clicking. " +
-				"Use this for tooltips, hover menus, preview cards, and controls that only appear on pointer hover.",
-			parameters: GuiHoverSchema,
-			method: "hover",
-			progressLabel: "GUI hover",
-			errorLabel: "GUI hover",
-			actionTarget: (params: GuiHoverParams) => params.target,
-		}),
-	},
-	{
-		name: "gui_click_and_hold",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_click_and_hold",
-			label: "GUI Click And Hold",
-			description:
-				"Click and hold a visually grounded GUI target for a short duration before releasing. " +
-				"Use this for press-and-hold menus, long-press affordances, or controls that react to dwell on mouse-down.",
-			parameters: GuiClickAndHoldSchema,
-			method: "clickAndHold",
-			progressLabel: "GUI click and hold",
-			errorLabel: "GUI click and hold",
-			actionTarget: (params: GuiClickAndHoldParams) => params.target,
-		}),
-	},
-	{
 		name: "gui_drag",
 		create: (runtime) => createGuiTool(runtime, {
 			name: "gui_drag",
 			label: "GUI Drag",
-				description:
-					"Drag between two visually grounded GUI targets, for example moving a file, reordering a list item, or dropping onto Trash. " +
-					"Use `groundingMode: \"single\"` for straightforward drags and `groundingMode: \"complex\"` when either endpoint is ambiguous or a prior attempt failed.",
+			description:
+				"Drag between two visually grounded GUI targets, for example moving a file, reordering a list item, or dropping onto Trash. " +
+				"Use `groundingMode: \"complex\"` when either endpoint is ambiguous or a prior attempt failed.",
 			parameters: GuiDragSchema,
 			method: "drag",
 			progressLabel: "GUI drag",
@@ -803,10 +647,9 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 		create: (runtime) => createGuiTool(runtime, {
 			name: "gui_scroll",
 			label: "GUI Scroll",
-				description:
-					"Scroll the active surface or a visually grounded GUI region in a cardinal direction. " +
-					"Omitting `target` is the common case when you just need to reveal more content. " +
-					"Prefer semantic `distance` values for page-like scrolling with preserved context unless you specifically need a low-level `amount` override.",
+			description:
+				"Scroll the active surface or a visually grounded GUI region in a cardinal direction. " +
+				"Omitting `target` is the common case when you just need to reveal more content.",
 			parameters: GuiScrollSchema,
 			method: "scroll",
 			progressLabel: "GUI scroll",
@@ -820,11 +663,10 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 		create: (runtime) => createGuiTool(runtime, {
 			name: "gui_type",
 			label: "GUI Type",
-				description:
-					"Type text into a visually grounded editable GUI field such as an input field or search box. " +
-					"Name the editable field or caret-bearing interior itself in `target`, not the surrounding composer bar or panel. " +
-					"Use `replace=false` only when appending is intentional. " +
-					"Use `groundingMode: \"single\"` for straightforward fields and `groundingMode: \"complex\"` when the field is ambiguous or a prior type attempt misfired.",
+			description:
+				"Type text into a visually grounded editable GUI field such as an input field or search box. " +
+				"Name the editable field itself in `target`. " +
+				"Use `replace=false` only when appending is intentional.",
 			parameters: GuiTypeSchema,
 			method: "type",
 			progressLabel: "GUI type",
@@ -834,55 +676,20 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 		}),
 	},
 	{
-		name: "gui_keypress",
+		name: "gui_key",
 		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_keypress",
-			label: "GUI Keypress",
-				description:
-					"Press a single key (no modifier combo) in the current or specified macOS app. " +
-					"Useful for Enter, Tab, Escape, Space, Delete, Backspace, arrow keys, Page Up/Down, Home, End. " +
-					"Does not require visual grounding. For modifier combos like Command+S, use gui_hotkey instead.",
-			parameters: GuiKeypressSchema,
-			method: "keypress",
-			progressLabel: "GUI keypress",
-			errorLabel: "GUI keypress",
-			actionTarget: (params: GuiKeypressParams) => params.key,
-		}),
-	},
-	{
-		name: "gui_hotkey",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_hotkey",
-			label: "GUI Hotkey",
-				description:
-					"Send a macOS keyboard shortcut (modifier+key combo) to the current or specified app. " +
-					"Examples: Command+S, Command+N, Shift+Command+P, Option+Command+I. " +
-					"For single keys without modifiers (Enter, Escape, Tab, Space), use gui_keypress instead.",
-			parameters: GuiHotkeySchema,
-			method: "hotkey",
-			progressLabel: "GUI hotkey",
-			errorLabel: "GUI hotkey",
-			actionTarget: (params: GuiHotkeyParams) =>
-				[...(params.modifiers ?? []), params.key].filter(Boolean).join("+"),
-		}),
-	},
-	{
-		name: "gui_screenshot",
-		create: (runtime) => createGuiTool(runtime, {
-			name: "gui_screenshot",
-			label: "GUI Screenshot",
+			name: "gui_key",
+			label: "GUI Key",
 			description:
-				"Capture a screenshot of the current GUI state for the visual computer-use route. " +
-				"Use this when you need the visual surface itself as an image artifact.",
-			parameters: GuiScreenshotSchema,
-			method: "screenshot",
-			progressLabel: "GUI screenshot",
-			errorLabel: "GUI screenshot",
-			actionTarget: (params: GuiScreenshotParams) => params.target ?? "current surface",
-			guard: resolveTargetlessOnlyGuard("gui_screenshot") as CapabilityGuard<GuiScreenshotParams>,
-			fallbackErrorDetails: { grounding_method: "screenshot" },
-			toResult: toScreenshotToolResult,
-			allowMidflightAbort: true,
+				"Send a keyboard shortcut or single key press. " +
+				"Examples: gui_key(key:'s', modifiers:['command']) for Cmd+S, gui_key(key:'Enter') for Enter. " +
+				"Does not require visual grounding.",
+			parameters: GuiKeySchema,
+			method: "key",
+			progressLabel: "GUI key",
+			errorLabel: "GUI key",
+			actionTarget: (params: GuiKeyParams) =>
+				[...(params.modifiers ?? []), params.key].filter(Boolean).join("+"),
 		}),
 	},
 	{
@@ -898,8 +705,24 @@ const GUI_TOOL_FACTORIES: Array<{ name: GuiToolName; create: GuiToolFactory }> =
 			progressLabel: "GUI wait",
 			errorLabel: "GUI wait",
 			actionTarget: (params: GuiWaitParams) => params.target,
-				argsForHeartbeat: (params: GuiWaitParams) => ({ app: params.app }),
+			argsForHeartbeat: (params: GuiWaitParams) => ({ app: params.app }),
 			allowMidflightAbort: true,
+		}),
+	},
+	{
+		name: "gui_move",
+		create: (runtime) => createGuiTool(runtime, {
+			name: "gui_move",
+			label: "GUI Move",
+			description:
+				"Move the cursor to absolute display coordinates without clicking. " +
+				"Use when you already know the exact pixel position.",
+			parameters: GuiMoveSchema,
+			method: "move",
+			progressLabel: "GUI move",
+			errorLabel: "GUI move",
+			actionTarget: (params: GuiMoveParams) => `(${params.x}, ${params.y})`,
+			argsForHeartbeat: (params: GuiMoveParams) => ({ app: params.app }),
 		}),
 	},
 ];
@@ -935,28 +758,12 @@ export function createGuiToolset(runtime: ComputerUseGuiRuntime = createDefaultG
 		.map((entry) => entry.create(runtime as GuiRuntimeWithCapabilities));
 }
 
-export function createGuiReadTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiReadSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_read")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiReadSchema>;
+export function createGuiObserveTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiObserveSchema> {
+	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_observe")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiObserveSchema>;
 }
 
 export function createGuiClickTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiClickSchema> {
 	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_click")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiClickSchema>;
-}
-
-export function createGuiRightClickTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiRightClickSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_right_click")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiRightClickSchema>;
-}
-
-export function createGuiDoubleClickTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiDoubleClickSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_double_click")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiDoubleClickSchema>;
-}
-
-export function createGuiHoverTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiHoverSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_hover")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiHoverSchema>;
-}
-
-export function createGuiClickAndHoldTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiClickAndHoldSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_click_and_hold")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiClickAndHoldSchema>;
 }
 
 export function createGuiDragTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiDragSchema> {
@@ -971,18 +778,14 @@ export function createGuiTypeTool(runtime: ComputerUseGuiRuntime = createDefault
 	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_type")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiTypeSchema>;
 }
 
-export function createGuiKeypressTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiKeypressSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_keypress")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiKeypressSchema>;
-}
-
-export function createGuiHotkeyTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiHotkeySchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_hotkey")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiHotkeySchema>;
-}
-
-export function createGuiScreenshotTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiScreenshotSchema> {
-	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_screenshot")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiScreenshotSchema>;
+export function createGuiKeyTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiKeySchema> {
+	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_key")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiKeySchema>;
 }
 
 export function createGuiWaitTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiWaitSchema> {
 	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_wait")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiWaitSchema>;
+}
+
+export function createGuiMoveTool(runtime: ComputerUseGuiRuntime = createDefaultGuiRuntime()): AgentTool<typeof GuiMoveSchema> {
+	return GUI_TOOL_FACTORIES.find((entry) => entry.name === "gui_move")!.create(runtime as GuiRuntimeWithCapabilities) as AgentTool<typeof GuiMoveSchema>;
 }

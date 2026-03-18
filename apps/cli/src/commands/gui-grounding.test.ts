@@ -454,7 +454,7 @@ describe("createOpenAIRuntimeGroundingProvider", () => {
 		expect(promptCalls[1]?.options?.images).toHaveLength(2);
 		expect(grounded).toMatchObject({
 			coordinateSpace: "image_pixels",
-			point: { x: 1100, y: 860 },
+			point: { x: 740, y: 865 },
 			raw: {
 				selected_attempt: "validated",
 				grounding_selected_round: 1,

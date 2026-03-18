@@ -4,7 +4,7 @@ Native GUI runtime for Understudy — screenshot-grounded desktop automation.
 
 ## What This Package Does
 
-- **GUI action execution**: 13 action types (`click`, `right_click`, `double_click`, `hover`, `click_and_hold`, `drag`, `scroll`, `type`, `keypress`, `hotkey`, `screenshot`, `read`, `wait`)
+- **GUI action execution**: 8 tool-facing actions (`observe`, `click`, `drag`, `scroll`, `type`, `key`, `wait`, `move`) with click sub-modes for right-click, double-click, hover-only, and click-and-hold
 - **Screenshot grounding**: LLM-based target resolution from screenshots via pluggable `GuiGroundingProvider`
 - **Native helper**: Swift-based macOS binary for window enumeration, accessibility queries, and input events
 - **Graceful degradation**: dynamically disables tools based on available permissions (Accessibility, Screen Recording)

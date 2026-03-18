@@ -779,17 +779,11 @@ function describeRelatedGroundingContext(params: {
 
 function actionSpecificGroundingInstructions(action: GuiGroundingActionIntent | undefined): string[] {
 	switch (action) {
-		case "read":
+		case "observe":
 			return [
 				"Resolve the visible element or content region that should be inspected.",
 				"The bbox should cover the observable target itself, not surrounding whitespace, wallpaper, or generic container chrome.",
 				"If the requested target is only implied by nearby labels but the visual element itself is not visible, return status=\"not_found\".",
-			];
-		case "screenshot":
-			return [
-				"Resolve the visual focus target or region that the screenshot should emphasize.",
-				"The bbox should cover the visible element or content area itself, not surrounding whitespace or decorative chrome.",
-				"If you cannot identify a meaningful visual focus target, return status=\"not_found\" instead of guessing a broad region.",
 			];
 		case "click":
 		case "right_click":
@@ -837,7 +831,9 @@ function actionSpecificGroundingInstructions(action: GuiGroundingActionIntent | 
 				"The bbox should cover the observable indicator or content area itself, not surrounding whitespace or generic layout chrome.",
 				"If the requested target is not distinctly visible yet, return status=\"not_found\" instead of guessing a likely region.",
 			];
-	default:
+		case "key":
+		case "move":
+		default:
 			return [];
 	}
 }
@@ -853,6 +849,11 @@ function actionRequiresExplicitPoint(action: GuiGroundingActionIntent | undefine
 		case "drag_destination":
 		case "type":
 			return true;
+		case "observe":
+		case "scroll":
+		case "wait":
+		case "key":
+		case "move":
 		default:
 			return false;
 	}
@@ -1031,7 +1032,12 @@ function stabilizeGroundingPoint(params: {
 				stabilized: true,
 			};
 		}
-			default:
+		case "observe":
+		case "scroll":
+		case "wait":
+		case "key":
+		case "move":
+		default:
 			return { point: params.point, stabilized: false };
 	}
 	const smallControl =
@@ -1347,8 +1353,7 @@ function shouldValidateResolvedCandidate(params: {
 	request: GuiGroundingRequest;
 }): { required: boolean; reason: string } {
 	switch (params.request.action) {
-		case "read":
-		case "screenshot":
+		case "observe":
 		case "wait":
 			return {
 				required: false,

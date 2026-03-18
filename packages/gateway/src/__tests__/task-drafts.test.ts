@@ -417,7 +417,7 @@ describe("createGatewayTaskDraftHandlers", () => {
 				steps: [
 					{
 						route: "gui",
-						toolName: "gui_hotkey",
+						toolName: "gui_key",
 						instruction: "Press Ctrl+C to stop the recording.",
 						target: "active Understudy terminal session",
 					},

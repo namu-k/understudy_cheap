@@ -1380,8 +1380,7 @@ function normalizeTeachValidationCheck(
 }
 
 const READ_ONLY_TEACH_VALIDATION_TOOLS = new Set([
-	"gui_read",
-	"gui_screenshot",
+	"gui_observe",
 	"gui_wait",
 	"vision_read",
 	"runtime_status",

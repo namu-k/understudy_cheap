@@ -2,19 +2,14 @@ import type { GuiEnvironmentReadinessSnapshot } from "./readiness.js";
 import { GUI_UNSUPPORTED_MESSAGE } from "./runtime.js";
 
 export type GuiToolName =
-	| "gui_read"
+	| "gui_observe"
 	| "gui_click"
-	| "gui_right_click"
-	| "gui_double_click"
-	| "gui_hover"
-	| "gui_click_and_hold"
 	| "gui_drag"
 	| "gui_scroll"
 	| "gui_type"
-	| "gui_keypress"
-	| "gui_hotkey"
-	| "gui_screenshot"
-	| "gui_wait";
+	| "gui_key"
+	| "gui_wait"
+	| "gui_move";
 
 export interface GuiToolCapability {
 	enabled: boolean;
@@ -34,71 +29,51 @@ export interface GuiRuntimeCapabilitySnapshot {
 }
 
 const GUI_TOOL_NAMES: GuiToolName[] = [
-	"gui_read",
+	"gui_observe",
 	"gui_click",
-	"gui_right_click",
-	"gui_double_click",
-	"gui_hover",
-	"gui_click_and_hold",
 	"gui_drag",
 	"gui_scroll",
 	"gui_type",
-	"gui_keypress",
-	"gui_hotkey",
-	"gui_screenshot",
+	"gui_key",
 	"gui_wait",
+	"gui_move",
 ];
 
 const GUI_TOOLS_ALWAYS_AVAILABLE: GuiToolName[] = [
-	"gui_keypress",
-	"gui_hotkey",
+	"gui_key",
 ];
 
 const GUI_TOOLS_TARGETLESS_WITHOUT_GROUNDING: GuiToolName[] = [
-	"gui_read",
+	"gui_observe",
 	"gui_scroll",
 	"gui_type",
-	"gui_screenshot",
 ];
 
 const GUI_TOOLS_REQUIRING_GROUNDING: GuiToolName[] = [
 	"gui_click",
-	"gui_right_click",
-	"gui_double_click",
-	"gui_hover",
-	"gui_click_and_hold",
 	"gui_drag",
 	"gui_wait",
 ];
 
 const GUI_TOOLS_REQUIRING_INPUT: GuiToolName[] = [
 	"gui_click",
-	"gui_right_click",
-	"gui_double_click",
-	"gui_hover",
-	"gui_click_and_hold",
 	"gui_drag",
 	"gui_scroll",
 	"gui_type",
-	"gui_keypress",
-	"gui_hotkey",
+	"gui_key",
+	"gui_move",
 ];
 
 const GUI_TOOLS_REQUIRING_SCREEN_CAPTURE: GuiToolName[] = [
-	"gui_read",
+	"gui_observe",
 	"gui_click",
-	"gui_right_click",
-	"gui_double_click",
-	"gui_hover",
-	"gui_click_and_hold",
 	"gui_drag",
-	"gui_screenshot",
 	"gui_wait",
 ];
 
 const GUI_GROUNDING_REQUIRED_REASON =
-	"Visual grounding is not configured, so grounding-based GUI actions (click, drag, hover, etc.) are unavailable. " +
-	"Keyboard-only tools (gui_keypress, gui_hotkey) and targetless gui_type still work.";
+	"Visual grounding is not configured, so grounding-based GUI actions (click, drag, etc.) are unavailable. " +
+	"Keyboard-only tool (gui_key) and targetless gui_type still work.";
 const GUI_TARGETLESS_ONLY_REASON =
 	"Visual grounding is not configured, so this tool only supports targetless usage (omit the `target` parameter). " +
 	"It will operate on the current surface or focused control.";
@@ -106,15 +81,15 @@ const GUI_NATIVE_HELPER_REQUIRED_REASON =
 	"Native GUI helper is unavailable, so GUI tools cannot run. Verify the helper binary is installed and accessible.";
 const GUI_ACCESSIBILITY_REQUIRED_REASON =
 	"Accessibility permission is not granted, so GUI input actions (click, type, scroll, drag, etc.) are unavailable. " +
-	"GUI observation tools (gui_read, gui_screenshot) may still work. " +
+	"GUI observation tools (gui_observe) may still work. " +
 	"Grant Accessibility permission in System Settings > Privacy & Security > Accessibility.";
 const GUI_SCREEN_CAPTURE_REQUIRED_REASON =
 	"Screen Recording permission is not granted, so screenshot-based GUI actions are unavailable. " +
-	"Keyboard-only tools (gui_keypress, gui_hotkey) still work. " +
+	"Keyboard-only tool (gui_key) still works. " +
 	"Grant Screen Recording permission in System Settings > Privacy & Security > Screen Recording.";
 const GUI_SCREEN_CAPTURE_TARGETLESS_ONLY_REASON =
 	"Screen Recording permission is not granted, so this tool only supports targetless usage (omit the `target` parameter). " +
-	"Keyboard-only tools (gui_keypress, gui_hotkey) still work.";
+	"Keyboard-only tool (gui_key) still works.";
 
 function resolveReadinessCheckStatus(
 	snapshot: GuiEnvironmentReadinessSnapshot | undefined,

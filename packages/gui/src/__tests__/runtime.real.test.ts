@@ -2,9 +2,10 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { ComputerUseGuiRuntime } from "../runtime.js";
 import type { GuiGroundingProvider } from "../types.js";
@@ -18,11 +19,17 @@ const shouldRunRealGuiBenchmarks =
 const shouldRunRealGuiGroundingE2E =
 	shouldRunRealGuiTests &&
 	process.env.UNDERSTUDY_RUN_REAL_GUI_GROUNDING_E2E === "1";
+const PIXELMATOR_APP_BUNDLE_PATH = "/Applications/Pixelmator Pro Creator Studio.app";
+const PIXELMATOR_APP_NAME = "Pixelmator Pro";
+const shouldRunRealPixelmatorTaskE2E =
+	shouldRunRealGuiGroundingE2E &&
+	existsSync(PIXELMATOR_APP_BUNDLE_PATH);
 const DEFAULT_REAL_GUI_BENCHMARK_ITERATIONS = 2;
 const REAL_GUI_SETUP_TIMEOUT_MS = 120_000;
 const REAL_GUI_TEST_TIMEOUT_MS = 60_000;
 const REAL_GUI_BENCHMARK_TIMEOUT_MS = 180_000;
 const REAL_GUI_GROUNDING_E2E_TIMEOUT_MS = 180_000;
+const REAL_GUI_NATIVE_TASK_TIMEOUT_MS = 360_000;
 const execFileAsync = promisify(execFile);
 
 async function importLocalModule<TModule extends object>(
@@ -105,11 +112,104 @@ usleep(40_000)
 print("moved")
 `;
 
+const MOUSE_CLICK_SCRIPT = String.raw`
+import Foundation
+import CoreGraphics
+
+enum ClickError: Error {
+	case invalidPoint
+	case eventCreationFailed
+}
+
+func env(_ key: String) -> String {
+	ProcessInfo.processInfo.environment[key] ?? ""
+}
+
+guard
+	let x = Double(env("UNDERSTUDY_GUI_X")),
+	let y = Double(env("UNDERSTUDY_GUI_Y"))
+else {
+	throw ClickError.invalidPoint
+}
+
+let point = CGPoint(x: x, y: y)
+guard let down = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: point, mouseButton: .left) else {
+	throw ClickError.eventCreationFailed
+}
+guard let up = CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: point, mouseButton: .left) else {
+	throw ClickError.eventCreationFailed
+}
+down.post(tap: .cghidEventTap)
+usleep(30_000)
+up.post(tap: .cghidEventTap)
+print("clicked")
+`;
+
 const MOUSE_LOCATION_SCRIPT = String.raw`
 import CoreGraphics
 
 let point = CGEvent(source: nil)?.location ?? .zero
 print("\(Int(round(point.x))),\(Int(round(point.y)))")
+`;
+
+const PIXELMATOR_WINDOW_TITLES_SCRIPT = String.raw`
+tell application "System Events"
+	tell process "Pixelmator Pro"
+		set windowNames to name of windows
+	end tell
+end tell
+set AppleScript's text item delimiters to linefeed
+return windowNames as text
+`;
+
+const PIXELMATOR_FIXTURE_IMAGE_SCRIPT = String.raw`
+import AppKit
+
+let outputPath = ProcessInfo.processInfo.environment["UNDERSTUDY_PIXELMATOR_OUTPUT"] ?? ""
+guard !outputPath.isEmpty else {
+	fatalError("UNDERSTUDY_PIXELMATOR_OUTPUT is required")
+}
+
+let size = NSSize(width: 900, height: 600)
+let image = NSImage(size: size)
+image.lockFocus()
+
+NSColor(calibratedRed: 0.11, green: 0.14, blue: 0.21, alpha: 1).setFill()
+NSBezierPath(rect: NSRect(origin: .zero, size: size)).fill()
+
+NSColor(calibratedRed: 0.98, green: 0.83, blue: 0.29, alpha: 1).setFill()
+NSBezierPath(roundedRect: NSRect(x: 70, y: 360, width: 280, height: 170), xRadius: 28, yRadius: 28).fill()
+
+NSColor(calibratedRed: 0.23, green: 0.61, blue: 0.96, alpha: 1).setFill()
+NSBezierPath(ovalIn: NSRect(x: 420, y: 120, width: 210, height: 210)).fill()
+
+NSColor(calibratedRed: 0.91, green: 0.34, blue: 0.43, alpha: 1).setFill()
+let triangle = NSBezierPath()
+triangle.move(to: NSPoint(x: 690, y: 110))
+triangle.line(to: NSPoint(x: 840, y: 490))
+triangle.line(to: NSPoint(x: 560, y: 470))
+triangle.close()
+triangle.fill()
+
+let caption = "Understudy Pixelmator"
+let attributes: [NSAttributedString.Key: Any] = [
+	.font: NSFont.boldSystemFont(ofSize: 54),
+	.foregroundColor: NSColor.white,
+]
+caption.draw(at: NSPoint(x: 72, y: 84), withAttributes: attributes)
+
+image.unlockFocus()
+
+guard
+	let tiffRepresentation = image.tiffRepresentation,
+	let bitmap = NSBitmapImageRep(data: tiffRepresentation),
+	let pngData = bitmap.representation(using: .png, properties: [:])
+else {
+	fatalError("Failed to encode fixture image")
+}
+
+try pngData.write(to: URL(fileURLWithPath: outputPath))
+print(outputPath)
 `;
 
 type ViewportOrigin = {
@@ -141,6 +241,16 @@ async function moveMouseToScreenPoint(point: { x: number; y: number }): Promise<
 	});
 }
 
+async function clickMouseAtScreenPoint(point: { x: number; y: number }): Promise<void> {
+	await execFileAsync("swift", ["-e", MOUSE_CLICK_SCRIPT], {
+		env: {
+			...process.env,
+			UNDERSTUDY_GUI_X: String(point.x),
+			UNDERSTUDY_GUI_Y: String(point.y),
+		},
+	});
+}
+
 async function readMouseScreenPoint(): Promise<{ x: number; y: number }> {
 	const result = await execFileAsync("swift", ["-e", MOUSE_LOCATION_SCRIPT], {
 		env: process.env,
@@ -152,6 +262,69 @@ async function readMouseScreenPoint(): Promise<{ x: number; y: number }> {
 		throw new Error(`Failed to parse the real mouse location from "${result.stdout.trim()}".`);
 	}
 	return { x, y };
+}
+
+function readGroundingDisplayPoint(details: Record<string, unknown> | undefined): { x: number; y: number } {
+	const point = details?.grounding_display_point as { x?: number; y?: number } | undefined;
+	if (!point || typeof point.x !== "number" || typeof point.y !== "number") {
+		throw new Error("Expected grounding_display_point in GUI result details.");
+	}
+	return {
+		x: point.x,
+		y: point.y,
+	};
+}
+
+async function createPixelmatorFixtureImage(imagePath: string): Promise<void> {
+	await execFileAsync("swift", ["-e", PIXELMATOR_FIXTURE_IMAGE_SCRIPT], {
+		env: {
+			...process.env,
+			UNDERSTUDY_PIXELMATOR_OUTPUT: imagePath,
+		},
+	});
+}
+
+async function readPixelmatorWindowTitles(): Promise<string[]> {
+	try {
+		const result = await execFileAsync("osascript", ["-e", PIXELMATOR_WINDOW_TITLES_SCRIPT], {
+			env: process.env,
+		});
+		return result.stdout
+			.split(/\r?\n/)
+			.map((line) => line.trim())
+			.filter(Boolean);
+	} catch {
+		return [];
+	}
+}
+
+async function openPixelmatorFixture(imagePath: string): Promise<void> {
+	await execFileAsync("open", ["-a", PIXELMATOR_APP_BUNDLE_PATH, imagePath], {
+		env: process.env,
+	});
+	await execFileAsync("osascript", ["-e", 'tell application "Pixelmator Pro Creator Studio" to activate'], {
+		env: process.env,
+	});
+}
+
+async function closePixelmatorFrontDocumentWithoutSaving(): Promise<void> {
+	await runAppleScript(String.raw`
+tell application "System Events"
+	if exists process "Pixelmator Pro" then
+		tell process "Pixelmator Pro"
+			keystroke "w" using command down
+			delay 0.3
+			if exists sheet 1 of front window then
+				if exists button "Don't Save" of sheet 1 of front window then
+					click button "Don't Save" of sheet 1 of front window
+				else if exists button "不保存" of sheet 1 of front window then
+					click button "不保存" of sheet 1 of front window
+				end if
+			end if
+		end tell
+	end if
+end tell
+`).catch(() => {});
 }
 
 async function calibrateViewportOrigin(page: any): Promise<ViewportOrigin> {
@@ -310,253 +483,260 @@ function createPlaywrightDomGroundingProvider(getSurfaces: () => BrowserGuiSurfa
 					function intersectionRect(
 						left: { left: number; top: number; right: number; bottom: number },
 						right: { left: number; top: number; right: number; bottom: number },
-				) {
-					const next = {
-						left: Math.max(left.left, right.left),
-						top: Math.max(left.top, right.top),
-						right: Math.min(left.right, right.right),
-						bottom: Math.min(left.bottom, right.bottom),
-					};
-					return next.right > next.left && next.bottom > next.top ? next : null;
-				}
-
-				function visibleRectFor(element: HTMLElement) {
-					const rect = element.getBoundingClientRect();
-					const style = window.getComputedStyle(element);
-					if (
-						element.hidden ||
-						style.display === "none" ||
-						style.visibility === "hidden" ||
-						rect.width <= 0 ||
-						rect.height <= 0
 					) {
-						return null;
+						const next = {
+							left: Math.max(left.left, right.left),
+							top: Math.max(left.top, right.top),
+							right: Math.min(left.right, right.right),
+							bottom: Math.min(left.bottom, right.bottom),
+						};
+						return next.right > next.left && next.bottom > next.top ? next : null;
 					}
-					let visibleRect = {
-						left: rect.left,
-						top: rect.top,
-						right: rect.right,
-						bottom: rect.bottom,
-					};
-					let current: HTMLElement | null = element.parentElement;
-					while (current) {
-						const currentStyle = window.getComputedStyle(current);
-						const clips =
-							currentStyle.overflow !== "visible" ||
-							currentStyle.overflowX !== "visible" ||
-							currentStyle.overflowY !== "visible";
-						if (clips) {
-							const currentRect = current.getBoundingClientRect();
-							const clipped = intersectionRect(visibleRect, {
-								left: currentRect.left,
-								top: currentRect.top,
-								right: currentRect.right,
-								bottom: currentRect.bottom,
-							});
-							if (!clipped) {
-								return null;
-							}
-							visibleRect = clipped;
+
+					function visibleRectFor(element: HTMLElement) {
+						const rect = element.getBoundingClientRect();
+						const style = window.getComputedStyle(element);
+						if (
+							element.hidden ||
+							style.display === "none" ||
+							style.visibility === "hidden" ||
+							rect.width <= 0 ||
+							rect.height <= 0
+						) {
+							return null;
 						}
-						current = current.parentElement;
+						let visibleRect = {
+							left: rect.left,
+							top: rect.top,
+							right: rect.right,
+							bottom: rect.bottom,
+						};
+						let current: HTMLElement | null = element.parentElement;
+						while (current) {
+							const currentStyle = window.getComputedStyle(current);
+							const clips =
+								currentStyle.overflow !== "visible" ||
+								currentStyle.overflowX !== "visible" ||
+								currentStyle.overflowY !== "visible";
+							if (clips) {
+								const currentRect = current.getBoundingClientRect();
+								const clipped = intersectionRect(visibleRect, {
+									left: currentRect.left,
+									top: currentRect.top,
+									right: currentRect.right,
+									bottom: currentRect.bottom,
+								});
+								if (!clipped) {
+									return null;
+								}
+								visibleRect = clipped;
+							}
+							current = current.parentElement;
+						}
+						return intersectionRect(visibleRect, {
+							left: 0,
+							top: 0,
+							right: window.innerWidth,
+							bottom: window.innerHeight,
+						});
 					}
-					return intersectionRect(visibleRect, {
-						left: 0,
-						top: 0,
-						right: window.innerWidth,
-						bottom: window.innerHeight,
-					});
-				}
 
-				function clamp(value: number, min: number, max: number) {
-					return Math.min(max, Math.max(min, value));
-				}
-
-				function normalizedCenterScore(
-					value: number,
-					start: number,
-					span: number,
-					direction: "start" | "end" | "center",
-				) {
-					const normalized = clamp((value - start) / Math.max(1, span), 0, 1);
-					if (direction === "start") {
-						return (1 - normalized) * 100;
+					function clamp(value: number, min: number, max: number) {
+						return Math.min(max, Math.max(min, value));
 					}
-					if (direction === "end") {
-						return normalized * 100;
-					}
-					return (1 - Math.abs(normalized - 0.5) * 2) * 100;
-				}
 
-				function locationHintScore(
-					locationHint: string | undefined,
-					visibleRect: { left: number; top: number; right: number; bottom: number },
-					referenceRect: { left: number; top: number; right: number; bottom: number },
-				) {
-					const hint = locationHint?.trim().toLowerCase();
-					if (!hint) {
+					function normalizedCenterScore(
+						value: number,
+						start: number,
+						span: number,
+						direction: "start" | "end" | "center",
+					) {
+						const normalized = clamp((value - start) / Math.max(1, span), 0, 1);
+						if (direction === "start") {
+							return (1 - normalized) * 100;
+						}
+						if (direction === "end") {
+							return normalized * 100;
+						}
+						return (1 - Math.abs(normalized - 0.5) * 2) * 100;
+					}
+
+					function locationHintScore(
+						locationHint: string | undefined,
+						visibleRect: { left: number; top: number; right: number; bottom: number },
+						referenceRect: { left: number; top: number; right: number; bottom: number },
+					) {
+						const hint = locationHint?.trim().toLowerCase();
+						if (!hint) {
+							return 0;
+						}
+						const centerX = (visibleRect.left + visibleRect.right) / 2;
+						const centerY = (visibleRect.top + visibleRect.bottom) / 2;
+						const width = referenceRect.right - referenceRect.left;
+						const height = referenceRect.bottom - referenceRect.top;
+						let score = 0;
+						if (hint.includes("left")) {
+							score += normalizedCenterScore(centerX, referenceRect.left, width, "start");
+						}
+						if (hint.includes("right")) {
+							score += normalizedCenterScore(centerX, referenceRect.left, width, "end");
+						}
+						if (
+							hint.includes("top") ||
+							hint.includes("upper") ||
+							hint.includes("header")
+						) {
+							score += normalizedCenterScore(centerY, referenceRect.top, height, "start");
+						}
+						if (
+							hint.includes("bottom") ||
+							hint.includes("lower") ||
+							hint.includes("footer")
+						) {
+							score += normalizedCenterScore(centerY, referenceRect.top, height, "end");
+						}
+						if (hint.includes("center") || hint.includes("middle")) {
+							score += normalizedCenterScore(centerX, referenceRect.left, width, "center") * 0.5;
+							score += normalizedCenterScore(centerY, referenceRect.top, height, "center") * 0.5;
+						}
+						return score;
+					}
+
+					function actionAffinityScore(element: HTMLElement, action: string | undefined) {
+						const normalizedAction = action?.trim().toLowerCase();
+						const tagName = element.tagName.toLowerCase();
+						const role = (element.getAttribute("role") ?? "").toLowerCase();
+						const isEditable =
+							tagName === "input" ||
+							tagName === "textarea" ||
+							element.isContentEditable;
+						const isInteractive =
+							tagName === "button" ||
+							tagName === "a" ||
+							tagName === "label" ||
+							role === "button" ||
+							role === "link" ||
+							element.hasAttribute("onclick");
+						const isScrollable =
+							element.scrollHeight > element.clientHeight + 2 ||
+							element.scrollWidth > element.clientWidth + 2;
+						if (!normalizedAction) {
+							return 0;
+						}
+						if (normalizedAction === "type") {
+							return isEditable ? 80 : 0;
+						}
+						if (normalizedAction === "scroll") {
+							return isScrollable ? 70 : 0;
+						}
+						if (
+							normalizedAction === "click" ||
+							normalizedAction === "right_click" ||
+							normalizedAction === "double_click" ||
+							normalizedAction === "hover" ||
+							normalizedAction === "click_and_hold"
+						) {
+							return isInteractive ? 50 : 0;
+						}
 						return 0;
 					}
-					const centerX = (visibleRect.left + visibleRect.right) / 2;
-					const centerY = (visibleRect.top + visibleRect.bottom) / 2;
-					const width = referenceRect.right - referenceRect.left;
-					const height = referenceRect.bottom - referenceRect.top;
-					let score = 0;
-					if (hint.includes("left")) {
-						score += normalizedCenterScore(centerX, referenceRect.left, width, "start");
-					}
-					if (hint.includes("right")) {
-						score += normalizedCenterScore(centerX, referenceRect.left, width, "end");
-					}
-					if (
-						hint.includes("top") ||
-						hint.includes("upper") ||
-						hint.includes("header")
-					) {
-						score += normalizedCenterScore(centerY, referenceRect.top, height, "start");
-					}
-					if (
-						hint.includes("bottom") ||
-						hint.includes("lower") ||
-						hint.includes("footer")
-					) {
-						score += normalizedCenterScore(centerY, referenceRect.top, height, "end");
-					}
-					if (hint.includes("center") || hint.includes("middle")) {
-						score += normalizedCenterScore(centerX, referenceRect.left, width, "center") * 0.5;
-						score += normalizedCenterScore(centerY, referenceRect.top, height, "center") * 0.5;
-					}
-					return score;
-				}
 
-				function actionAffinityScore(element: HTMLElement, action: string | undefined) {
-					const normalizedAction = action?.trim().toLowerCase();
-					const tagName = element.tagName.toLowerCase();
-					const role = (element.getAttribute("role") ?? "").toLowerCase();
-					const isEditable =
-						tagName === "input" ||
-						tagName === "textarea" ||
-						element.isContentEditable;
-					const isInteractive =
-						tagName === "button" ||
-						tagName === "a" ||
-						tagName === "label" ||
-						role === "button" ||
-						role === "link" ||
-						element.hasAttribute("onclick");
-					const isScrollable =
-						element.scrollHeight > element.clientHeight + 2 ||
-						element.scrollWidth > element.clientWidth + 2;
-					if (!normalizedAction) {
-						return 0;
+					function elementsWithExactGuiValue(
+						root: ParentNode,
+						attributeName: string,
+						value: string,
+					): HTMLElement[] {
+						return Array.from(root.querySelectorAll(`[${attributeName}]`))
+							.filter((element) => element.getAttribute(attributeName) === value) as HTMLElement[];
 					}
-					if (normalizedAction === "type") {
-						return isEditable ? 80 : 0;
-					}
-					if (normalizedAction === "scroll") {
-						return isScrollable ? 70 : 0;
-					}
-					if (
-						normalizedAction === "click" ||
-						normalizedAction === "right_click" ||
-						normalizedAction === "double_click" ||
-						normalizedAction === "hover" ||
-						normalizedAction === "click_and_hold"
-					) {
-						return isInteractive ? 50 : 0;
-					}
-					return 0;
-				}
 
-				const label = params.label;
-				const root = params.scope
-					? document.querySelector(`[data-gui-scope="${params.scope}"]`) as HTMLElement | null
-					: null;
-				const searchRoot = root ?? document;
-				const referenceRect = root
-					? root.getBoundingClientRect()
-					: {
-						left: 0,
-						top: 0,
-						right: window.innerWidth,
-						bottom: window.innerHeight,
-					};
-				const candidates = Array.from(
-					searchRoot.querySelectorAll(`[data-gui-target="${label}"]`),
-				) as HTMLElement[];
-				const rankedCandidates = [] as Array<{
-					element: HTMLElement;
-					rect: DOMRect;
-					visibleRect: { left: number; top: number; right: number; bottom: number };
-					score: number;
-					domIndex: number;
-				}>;
-				for (const [domIndex, element] of candidates.entries()) {
-					const rect = element.getBoundingClientRect();
-					const visibleRect = visibleRectFor(element);
-					if (!visibleRect) {
-						continue;
+					const label = params.label;
+					const root = params.scope
+						? elementsWithExactGuiValue(document, "data-gui-scope", params.scope)[0] ?? null
+						: null;
+					const searchRoot = root ?? document;
+					const referenceRect = root
+						? root.getBoundingClientRect()
+						: {
+								left: 0,
+								top: 0,
+								right: window.innerWidth,
+								bottom: window.innerHeight,
+							};
+					const candidates = elementsWithExactGuiValue(searchRoot, "data-gui-target", label);
+					const rankedCandidates = [] as Array<{
+						element: HTMLElement;
+						rect: DOMRect;
+						visibleRect: { left: number; top: number; right: number; bottom: number };
+						score: number;
+						domIndex: number;
+					}>;
+					for (const [domIndex, element] of candidates.entries()) {
+						const rect = element.getBoundingClientRect();
+						const visibleRect = visibleRectFor(element);
+						if (!visibleRect) {
+							continue;
+						}
+						rankedCandidates.push({
+							element,
+							rect,
+							visibleRect,
+							score:
+								locationHintScore(params.locationHint, visibleRect, referenceRect) +
+								actionAffinityScore(element, params.action),
+							domIndex,
+						});
 					}
-					rankedCandidates.push({
-						element,
-						rect,
-						visibleRect,
-						score:
-							locationHintScore(params.locationHint, visibleRect, referenceRect) +
-							actionAffinityScore(element, params.action),
-						domIndex,
+					rankedCandidates.sort((left, right) => {
+						if (right.score !== left.score) {
+							return right.score - left.score;
+						}
+						const leftArea =
+							(left.visibleRect.right - left.visibleRect.left) *
+							(left.visibleRect.bottom - left.visibleRect.top);
+						const rightArea =
+							(right.visibleRect.right - right.visibleRect.left) *
+							(right.visibleRect.bottom - right.visibleRect.top);
+						if (rightArea !== leftArea) {
+							return rightArea - leftArea;
+						}
+						return left.domIndex - right.domIndex;
 					});
-				}
-				rankedCandidates.sort((left, right) => {
-					if (right.score !== left.score) {
-						return right.score - left.score;
+					const selected = rankedCandidates[0];
+					if (!selected) {
+						return undefined;
 					}
-					const leftArea =
-						(left.visibleRect.right - left.visibleRect.left) *
-						(left.visibleRect.bottom - left.visibleRect.top);
-					const rightArea =
-						(right.visibleRect.right - right.visibleRect.left) *
-						(right.visibleRect.bottom - right.visibleRect.top);
-					if (rightArea !== leftArea) {
-						return rightArea - leftArea;
-					}
-					return left.domIndex - right.domIndex;
-				});
-				const selected = rankedCandidates[0];
-				if (!selected) {
-					return undefined;
-				}
-				{
-					const { rect, visibleRect, score } = selected;
-					const centerX = Math.round((visibleRect.left + visibleRect.right) / 2);
-					const centerY = Math.round((visibleRect.top + visibleRect.bottom) / 2);
-					return {
-						method: "grounding",
-						provider: "playwright-dom",
-						confidence: 1,
-						reason: `Matched ${label}${params.locationHint ? ` via ${params.locationHint}` : ""}`,
-						coordinateSpace: "display_pixels",
-						point: {
-							x: Math.round(params.viewportOrigin.x + centerX),
-							y: Math.round(params.viewportOrigin.y + centerY),
-						},
-						box: {
-							x: Math.round(params.viewportOrigin.x + visibleRect.left),
-							y: Math.round(params.viewportOrigin.y + visibleRect.top),
-							width: Math.round(visibleRect.right - visibleRect.left),
-							height: Math.round(visibleRect.bottom - visibleRect.top),
-						},
-						raw: {
-							score,
-							rect: {
-								left: Math.round(rect.left),
-								top: Math.round(rect.top),
-								right: Math.round(rect.right),
-								bottom: Math.round(rect.bottom),
+					{
+						const { rect, visibleRect, score } = selected;
+						const centerX = Math.round((visibleRect.left + visibleRect.right) / 2);
+						const centerY = Math.round((visibleRect.top + visibleRect.bottom) / 2);
+						return {
+							method: "grounding",
+							provider: "playwright-dom",
+							confidence: 1,
+							reason: `Matched ${label}${params.locationHint ? ` via ${params.locationHint}` : ""}`,
+							coordinateSpace: "display_pixels",
+							point: {
+								x: Math.round(params.viewportOrigin.x + centerX),
+								y: Math.round(params.viewportOrigin.y + centerY),
 							},
-						},
-					};
-				}
+							box: {
+								x: Math.round(params.viewportOrigin.x + visibleRect.left),
+								y: Math.round(params.viewportOrigin.y + visibleRect.top),
+								width: Math.round(visibleRect.right - visibleRect.left),
+								height: Math.round(visibleRect.bottom - visibleRect.top),
+							},
+							raw: {
+								score,
+								rect: {
+									left: Math.round(rect.left),
+									top: Math.round(rect.top),
+									right: Math.round(rect.right),
+									bottom: Math.round(rect.bottom),
+								},
+							},
+						};
+					}
 				}, {
 					label: target,
 					scope,
@@ -1646,17 +1826,42 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		await browser?.close();
 	}, REAL_GUI_SETUP_TIMEOUT_MS);
 
-	it("drives all 13 GUI operations through a grounded browser end-to-end scenario", async () => {
+	it("drives all 8 GUI operations through a grounded browser end-to-end scenario", async () => {
 		await prepareBrowserPagesForGui(popupPage, page);
 		await resetSmokePage(page, popupPage);
 		const runtime = browserRuntime;
 
-			const readResult = await runtime.read({
+			const readResult = await runtime.observe({
 				app: browserAppName,
 				target: "Click button",
 				scope: "Workspace panel",
 			});
 			expect(readResult.status.code).toBe("resolved");
+			const clickButtonPoint = readGroundingDisplayPoint(readResult.details);
+
+			const hoverProbe = await runtime.observe({
+				app: browserAppName,
+				target: "Hover chip",
+				scope: "Workspace panel",
+			});
+			expect(hoverProbe.status.code).toBe("resolved");
+			const hoverChipPoint = readGroundingDisplayPoint(hoverProbe.details);
+
+			const moveToHoverChip = await runtime.move({
+				app: browserAppName,
+				x: hoverChipPoint.x,
+				y: hoverChipPoint.y,
+			});
+			expect(moveToHoverChip.status.code).toBe("action_sent");
+			await expect.poll(async () => page.textContent("#hover-status")).toBe("hover:done");
+
+			const moveAwayFromHoverChip = await runtime.move({
+				app: browserAppName,
+				x: clickButtonPoint.x,
+				y: clickButtonPoint.y,
+			});
+			expect(moveAwayFromHoverChip.status.code).toBe("action_sent");
+			await expect.poll(async () => page.textContent("#hover-status")).toBe("hover:none");
 
 			const clickResult = await runtime.click({
 				app: browserAppName,
@@ -1666,36 +1871,39 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			expect(clickResult.status.code).toBe("action_sent");
 			await expect.poll(async () => page.textContent("#status")).toBe("clicked");
 
-			const rightClickResult = await runtime.rightClick({
+			const rightClickResult = await runtime.click({
 				app: browserAppName,
 				target: "Context button",
 				scope: "Workspace panel",
+				button: "right",
 			});
 			expect(rightClickResult.status.code).toBe("action_sent");
 			await expect.poll(async () => page.textContent("#right-click-status")).toBe("right-click:done");
 
-		const doubleClickResult = await runtime.doubleClick({
+		const doubleClickResult = await runtime.click({
 			app: browserAppName,
 			target: "Double button",
 			scope: "Workspace panel",
+			clicks: 2,
 		});
 		expect(doubleClickResult.status.code).toBe("action_sent");
 		await expect.poll(async () => page.textContent("#status")).toBe("double-clicked");
 
-			const hoverResult = await runtime.hover({
+			const hoverResult = await runtime.click({
 				app: browserAppName,
 				target: "Hover chip",
 				scope: "Workspace panel",
+				button: "none",
 				settleMs: 250,
 			});
 			expect(hoverResult.status.code).toBe("action_sent");
 			await expect.poll(async () => page.textContent("#hover-status")).toBe("hover:done");
 
-			const holdResult = await runtime.clickAndHold({
+			const holdResult = await runtime.click({
 				app: browserAppName,
 				target: "Hold button",
 				scope: "Workspace panel",
-				holdDurationMs: 700,
+				holdMs: 700,
 			});
 			expect(holdResult.status.code).toBe("action_sent");
 			await expect.poll(async () => page.textContent("#hold-status")).toBe("hold:done");
@@ -1706,10 +1914,11 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				toTarget: "Puzzle completion marker",
 				fromScope: "Workspace panel",
 				toScope: "Workspace panel",
-				fromLocationHint: "left side of the slider track",
-				toLocationHint: "right side of the slider track",
+				groundingMode: "complex",
+				fromLocationHint: "left end of the slider track",
+				toLocationHint: "center of the dashed blue completion marker on the right side of the slider track",
 				captureMode: "display",
-				durationMs: 700,
+				durationMs: 900,
 			});
 			expect(dragResult.status.code).toBe("action_sent");
 			await expect.poll(async () => page.textContent("#slider-status")).toBe("slider:solved");
@@ -1735,14 +1944,14 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		expect(typeResult.status.code).toBe("action_sent");
 		await expect.poll(async () => page.inputValue("#input-field")).toBe("gui smoke");
 
-		const keypressResult = await runtime.keypress({
+		const keypressResult = await runtime.key({
 			app: browserAppName,
 			key: "Enter",
 		});
 		expect(keypressResult.status.code).toBe("action_sent");
 		await expect.poll(async () => page.textContent("#keypress-status")).toBe("keypress:enter");
 
-		const hotkeyResult = await runtime.hotkey({
+		const hotkeyResult = await runtime.key({
 			app: browserAppName,
 			key: "k",
 			modifiers: ["shift"],
@@ -1750,7 +1959,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		expect(hotkeyResult.status.code).toBe("action_sent");
 		await expect.poll(async () => page.textContent("#hotkey-status")).toBe("hotkey:shift+k");
 
-		const screenshotResult = await runtime.screenshot({ app: browserAppName });
+		const screenshotResult = await runtime.observe({ app: browserAppName });
 		expect(screenshotResult.status.code).toBe("observed");
 		expect(screenshotResult.image?.mimeType).toBe("image/png");
 
@@ -1966,9 +2175,10 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 
 			const typeResult = await runtime.type({
 				app: browserAppName,
-				target: "Type here input field",
-				scope: "Workspace panel",
-				locationHint: "upper-left area of the workspace panel",
+				target: 'input field with placeholder "Type here"',
+				scope: 'the row with the input field and Hover chip',
+				groundingMode: "complex",
+				locationHint: "left side of the row",
 				value: "real grounding flow",
 			});
 			expect(typeResult.status.code).toBe("action_sent");
@@ -2027,7 +2237,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "read_target",
 				family: "region_observation",
 				run: async () => {
-					const result = await runtime.read({
+					const result = await runtime.observe({
 						app: browserAppName,
 						target: "Click button",
 						scope: "Workspace panel",
@@ -2081,10 +2291,11 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "right_click",
 				family: "point_action",
 				run: async () => {
-					const result = await runtime.rightClick({
+					const result = await runtime.click({
 						app: browserAppName,
 						target: "Context button",
 						scope: "Workspace panel",
+						button: "right",
 					});
 					expect(result.status.code).toBe("action_sent");
 					await expect.poll(async () => page.textContent("#right-click-status")).toBe("right-click:done");
@@ -2094,10 +2305,11 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "double_click",
 				family: "point_action",
 				run: async () => {
-					const result = await runtime.doubleClick({
+					const result = await runtime.click({
 						app: browserAppName,
 						target: "Double button",
 						scope: "Workspace panel",
+						clicks: 2,
 					});
 					expect(result.status.code).toBe("action_sent");
 					await expect.poll(async () => page.textContent("#status")).toBe("double-clicked");
@@ -2107,10 +2319,11 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "hover",
 				family: "point_action",
 				run: async () => {
-					const result = await runtime.hover({
+					const result = await runtime.click({
 						app: browserAppName,
 						target: "Hover chip",
 						scope: "Workspace panel",
+						button: "none",
 						settleMs: 250,
 					});
 					expect(result.status.code).toBe("action_sent");
@@ -2121,11 +2334,11 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "click_and_hold",
 				family: "point_action",
 				run: async () => {
-					const result = await runtime.clickAndHold({
+					const result = await runtime.click({
 						app: browserAppName,
 						target: "Hold button",
 						scope: "Workspace panel",
-						holdDurationMs: 700,
+						holdMs: 700,
 					});
 					expect(result.status.code).toBe("action_sent");
 					await expect.poll(async () => page.textContent("#hold-status")).toBe("hold:done");
@@ -2220,7 +2433,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				family: "keyboard_only",
 				run: async () => {
 					await page.focus("#input-field");
-					const result = await runtime.keypress({
+					const result = await runtime.key({
 						app: browserAppName,
 						key: "Enter",
 					});
@@ -2233,7 +2446,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				family: "keyboard_only",
 				run: async () => {
 					await page.focus("#input-field");
-					const result = await runtime.hotkey({
+					const result = await runtime.key({
 						app: browserAppName,
 						key: "k",
 						modifiers: ["shift"],
@@ -2246,7 +2459,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				id: "screenshot",
 				family: "region_observation",
 				run: async () => {
-					const result = await runtime.screenshot({ app: browserAppName });
+					const result = await runtime.observe({ app: browserAppName });
 					expect(result.status.code).toBe("observed");
 					expect(result.image?.mimeType).toBe("image/png");
 				},
@@ -2367,7 +2580,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			);
 
 			const runtime = new ComputerUseGuiRuntime();
-			const openResult = await runtime.hotkey({
+			const openResult = await runtime.key({
 				app: "Finder",
 				key: "down",
 				modifiers: ["command"],
@@ -2377,13 +2590,13 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				normalizeFinderPath(nestedDir),
 			);
 
-			const screenshotResult = await runtime.screenshot({
+			const screenshotResult = await runtime.observe({
 				app: "Finder",
 			});
 			expect(screenshotResult.status.code).toBe("observed");
 			expect(screenshotResult.image?.mimeType).toBe("image/png");
 
-			const backResult = await runtime.hotkey({
+			const backResult = await runtime.key({
 				app: "Finder",
 				key: "up",
 				modifiers: ["command"],
@@ -2434,7 +2647,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 		await launchTextEdit();
 		const runtime = new ComputerUseGuiRuntime();
 			try {
-				const newDoc = await runtime.hotkey({
+				const newDoc = await runtime.key({
 					app: "TextEdit",
 					key: "n",
 					modifiers: ["command"],
@@ -2448,7 +2661,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			expect(typeFirstLine.status.code).toBe("action_sent");
 			await expect.poll(readTextEditDocumentText).toContain("Understudy native smoke");
 
-			const enterResult = await runtime.keypress({
+			const enterResult = await runtime.key({
 				app: "TextEdit",
 				key: "Enter",
 			});
@@ -2462,7 +2675,7 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 			expect(typeSecondLine.status.code).toBe("action_sent");
 			await expect.poll(readTextEditDocumentText).toContain("Understudy native smoke\nSecond line");
 
-			const screenshotResult = await runtime.screenshot({
+			const screenshotResult = await runtime.observe({
 				app: "TextEdit",
 			});
 			expect(screenshotResult.status.code).toBe("observed");
@@ -2471,4 +2684,171 @@ const TEST_PAGE_HTML = String.raw`<!doctype html>
 				await closeTextEditWithoutSaving();
 			}
 		}, REAL_GUI_TEST_TIMEOUT_MS);
+
+	it.runIf(shouldRunRealPixelmatorTaskE2E)(
+		"drives a real Pixelmator Pro retouching task with grounded move, click, scroll, drag, key, and type operations",
+		async () => {
+			const fixtureDir = await mkdtemp(join(tmpdir(), "understudy-pixelmator-task-"));
+			const imagePath = join(fixtureDir, "understudy-pixelmator-task.png");
+			const windowTitleFragment = basename(imagePath, ".png");
+			const windowSelector = {
+				titleContains: windowTitleFragment,
+			} as const;
+			try {
+				await createPixelmatorFixtureImage(imagePath);
+				await openPixelmatorFixture(imagePath);
+				await expect
+					.poll(async () =>
+						(await readPixelmatorWindowTitles()).some((title) => title.includes(windowTitleFragment)),
+					)
+					.toBe(true);
+
+				const runtime = await getRealOpenAIGroundedRuntime();
+
+				const autoEnhanceReady = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'yellow button labeled "自动增强"',
+					scope: "the right color adjustments panel",
+					groundingMode: "complex",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(autoEnhanceReady.status.code).toBe("resolved");
+				expect(autoEnhanceReady.details?.grounding_provider).toEqual(expect.stringContaining("openai"));
+				const autoEnhancePoint = readGroundingDisplayPoint(autoEnhanceReady.details);
+
+				const moveResult = await runtime.move({
+					app: PIXELMATOR_APP_NAME,
+					x: autoEnhancePoint.x,
+					y: autoEnhancePoint.y,
+				});
+				expect(moveResult.status.code).toBe("action_sent");
+				await expect
+					.poll(async () => {
+						const point = await readMouseScreenPoint();
+						return (
+							Math.abs(point.x - autoEnhancePoint.x) <= 6 &&
+							Math.abs(point.y - autoEnhancePoint.y) <= 6
+						);
+					})
+					.toBe(true);
+
+				await runAppleScript('tell application "Pixelmator Pro Creator Studio" to activate');
+				// Reuse the already grounded display point so we do not spend another grounding call on the same control.
+				await clickMouseAtScreenPoint(autoEnhancePoint);
+				await runAppleScript("delay 0.5");
+				const autoEnhanceApplied = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'greyed-out button labeled "自动增强"',
+					scope: "the right color adjustments panel",
+					groundingMode: "complex",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(autoEnhanceApplied.status.code).toBe("resolved");
+
+				const undoAutoEnhance = await runtime.key({
+					app: PIXELMATOR_APP_NAME,
+					key: "z",
+					modifiers: ["command"],
+					captureMode: "display",
+					windowSelector,
+				});
+				expect(undoAutoEnhance.status.code).toBe("action_sent");
+				await runAppleScript("delay 0.5");
+				const autoEnhanceUndone = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'yellow button labeled "自动增强"',
+					scope: "the right color adjustments panel",
+					groundingMode: "complex",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(autoEnhanceUndone.status.code).toBe("resolved");
+
+				const scrollInspector = await runtime.scroll({
+					app: PIXELMATOR_APP_NAME,
+					target: "the right color adjustments panel",
+					scope: "the inspector panel on the right side",
+					direction: "down",
+					distance: "page",
+					groundingMode: "complex",
+					captureMode: "display",
+					windowSelector,
+				});
+				expect(scrollInspector.status.code).toBe("action_sent");
+				const contrastBefore = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'slider handle on the 对比度 row',
+					scope: "the right color adjustments panel",
+					groundingMode: "complex",
+					locationHint: "middle of the right inspector panel",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(contrastBefore.status.code).toBe("resolved");
+				const contrastBeforePoint = readGroundingDisplayPoint(contrastBefore.details);
+
+				const dragContrast = await runtime.drag({
+					app: PIXELMATOR_APP_NAME,
+					fromTarget: 'slider handle on the 对比度 row',
+					toTarget: 'right side of the 对比度 slider track',
+					fromScope: "the right color adjustments panel",
+					toScope: "the right color adjustments panel",
+					fromLocationHint: "center of the 对比度 slider handle",
+					toLocationHint: "right half of the 对比度 slider track",
+					groundingMode: "complex",
+					captureMode: "display",
+					durationMs: 900,
+					windowSelector,
+				});
+				expect(dragContrast.status.code).toBe("action_sent");
+				await runAppleScript("delay 0.5");
+				const contrastAfter = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'slider handle on the 对比度 row',
+					scope: "the right color adjustments panel",
+					groundingMode: "complex",
+					locationHint: "right half of the right inspector panel",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(contrastAfter.status.code).toBe("resolved");
+				expect(readGroundingDisplayPoint(contrastAfter.details).x).toBeGreaterThan(contrastBeforePoint.x + 12);
+
+				const typeSearch = await runtime.type({
+					app: PIXELMATOR_APP_NAME,
+					target: 'search field with placeholder "搜索"',
+					scope: "the left layers panel",
+					groundingMode: "complex",
+					locationHint: "top of the left panel",
+					captureMode: "display",
+					windowSelector,
+					value: "test",
+				});
+				expect(typeSearch.status.code).toBe("action_sent");
+				await runAppleScript("delay 0.3");
+				const searchVerified = await runtime.observe({
+					app: PIXELMATOR_APP_NAME,
+					target: 'search field showing "test"',
+					scope: "the left layers panel",
+					groundingMode: "complex",
+					locationHint: "top of the left panel",
+					captureMode: "display",
+					windowSelector,
+					returnImage: false,
+				});
+				expect(searchVerified.status.code).toBe("resolved");
+			} finally {
+				await closePixelmatorFrontDocumentWithoutSaving();
+				await rm(fixtureDir, { recursive: true, force: true });
+			}
+		},
+		REAL_GUI_NATIVE_TASK_TIMEOUT_MS,
+	);
 	});

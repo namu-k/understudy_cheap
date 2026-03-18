@@ -116,24 +116,26 @@ function summarizeToolProgress(event: UnderstudySessionToolEvent): string {
 	const appName = asString(params?.app);
 	const target = describeGuiTarget(params);
 	switch (event.toolName) {
-		case "gui_read":
+		case "gui_observe":
 			return `Inspecting the GUI${appName ? ` in ${appName}` : ""}${target ? ` for "${target}"` : ""}.`;
 		case "gui_click":
+			if (asString(params?.button) === "none") {
+				return `Hovering${target ? ` "${target}"` : " over a GUI target"}${appName ? ` in ${appName}` : ""}.`;
+			}
 			return `Clicking${target ? ` "${target}"` : " a GUI target"}${appName ? ` in ${appName}` : ""}.`;
-		case "gui_right_click":
-			return `Right-clicking${target ? ` "${target}"` : " a GUI target"}${appName ? ` in ${appName}` : ""}.`;
-		case "gui_double_click":
-			return `Double-clicking${target ? ` "${target}"` : " a GUI target"}${appName ? ` in ${appName}` : ""}.`;
-		case "gui_hover":
-			return `Hovering${target ? ` "${target}"` : " over a GUI target"}${appName ? ` in ${appName}` : ""}.`;
-		case "gui_click_and_hold":
-			return `Pressing and holding${target ? ` "${target}"` : " a GUI target"}${appName ? ` in ${appName}` : ""}.`;
+		case "gui_move":
+			if (typeof params?.x === "number" && typeof params?.y === "number") {
+				return `Moving the cursor to (${Math.round(params.x)}, ${Math.round(params.y)})${appName ? ` in ${appName}` : ""}.`;
+			}
+			return `Moving the cursor${appName ? ` in ${appName}` : ""}.`;
 		case "gui_drag":
 			return `Dragging${target ? ` ${target}` : " between GUI targets"}${appName ? ` in ${appName}` : ""}.`;
 		case "gui_scroll":
 			return `Scrolling${target ? ` "${target}"` : " the GUI"}${appName ? ` in ${appName}` : ""}.`;
 		case "gui_type":
 			return `Typing${target ? ` into "${target}"` : " into the GUI"}${appName ? ` in ${appName}` : ""}.`;
+		case "gui_key":
+			return `Pressing a key${appName ? ` in ${appName}` : ""}.`;
 		case "gui_wait":
 			return `Waiting for "${target ?? "the requested GUI state"}"${appName ? ` in ${appName}` : ""}.`;
 		case "browser":

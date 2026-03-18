@@ -224,14 +224,14 @@ describe("ComputerUseGuiRuntime", () => {
 			screenCaptureAvailable: false,
 			inputAvailable: true,
 		});
-		expect(capabilities.toolAvailability.gui_read).toMatchObject({
+		expect(capabilities.toolAvailability.gui_observe).toMatchObject({
 			enabled: false,
 		});
 		expect(capabilities.toolAvailability.gui_scroll).toMatchObject({
 			enabled: true,
 			targetlessOnly: true,
 		});
-		expect(capabilities.toolAvailability.gui_keypress).toMatchObject({
+		expect(capabilities.toolAvailability.gui_key).toMatchObject({
 			enabled: true,
 		});
 	});
@@ -259,11 +259,11 @@ describe("ComputerUseGuiRuntime", () => {
 			screenCaptureAvailable: true,
 			inputAvailable: false,
 		});
-		expect(capabilities.toolAvailability.gui_read).toMatchObject({
+		expect(capabilities.toolAvailability.gui_observe).toMatchObject({
 			enabled: true,
 			targetlessOnly: true,
 		});
-		expect(capabilities.toolAvailability.gui_keypress).toMatchObject({
+		expect(capabilities.toolAvailability.gui_key).toMatchObject({
 			enabled: false,
 		});
 		expect(capabilities.toolAvailability.gui_click).toMatchObject({
@@ -274,11 +274,11 @@ describe("ComputerUseGuiRuntime", () => {
 	it("captures screenshots with the cursor visible", async () => {
 		const runtime = new ComputerUseGuiRuntime();
 
-		const result = await runtime.screenshot();
+		const result = await runtime.observe();
 
 		expect(result.status).toEqual({
 			code: "observed",
-			summary: "GUI screenshot captured.",
+			summary: "Visual GUI snapshot captured.",
 		});
 		expect(result.details).toMatchObject({
 			capture_method: "screencapture",
@@ -303,7 +303,7 @@ describe("ComputerUseGuiRuntime", () => {
 	it("prefers a region capture for app-scoped screenshots", async () => {
 		const runtime = new ComputerUseGuiRuntime();
 
-		const result = await runtime.screenshot({
+		const result = await runtime.observe({
 			app: "Mail",
 		});
 
@@ -334,7 +334,7 @@ describe("ComputerUseGuiRuntime", () => {
 		};
 		const runtime = new ComputerUseGuiRuntime();
 
-		const result = await runtime.screenshot({
+		const result = await runtime.observe({
 			app: "Mail",
 		});
 
@@ -366,7 +366,7 @@ describe("ComputerUseGuiRuntime", () => {
 		mocks.readFile.mockResolvedValueOnce(createPngBuffer(1000, 640));
 		const runtime = new ComputerUseGuiRuntime();
 
-		const result = await runtime.screenshot({
+		const result = await runtime.observe({
 			app: "Mail",
 		});
 
@@ -386,7 +386,7 @@ describe("ComputerUseGuiRuntime", () => {
 	it("uses explicit display capture when requested", async () => {
 		const runtime = new ComputerUseGuiRuntime();
 
-		const result = await runtime.screenshot({
+		const result = await runtime.observe({
 			app: "Mail",
 			captureMode: "display",
 		});
@@ -407,7 +407,7 @@ describe("ComputerUseGuiRuntime", () => {
 	it("passes window selection through to the capture helper", async () => {
 		const runtime = new ComputerUseGuiRuntime();
 
-		await runtime.screenshot({
+		await runtime.observe({
 			app: "Mail",
 			windowTitle: "Inbox",
 			windowSelector: {
@@ -427,13 +427,13 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 	});
 
-	it("resolves GUI read targets visually", async () => {
+	it("resolves GUI observe targets visually", async () => {
 		const ground = vi.fn().mockResolvedValue(
 			groundedTarget("Send button", { x: 48, y: 64 }),
 		);
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.read({
+		const result = await runtime.observe({
 			target: "Send button",
 			scope: "composer",
 		});
@@ -457,13 +457,13 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).not.toContain("-C");
 	});
 
-		it("re-grounds a same-target click after gui_read so action-specific context reaches the grounding model", async () => {
+		it("re-grounds a same-target click after gui_observe so action-specific context reaches the grounding model", async () => {
 		const ground = vi.fn().mockResolvedValue(
 			groundedTarget("Send button", { x: 48, y: 64 }, 0.96),
 		);
 		const runtime = createRuntime(ground);
 
-		const readResult = await runtime.read({
+		const readResult = await runtime.observe({
 			target: "Send button",
 			scope: "composer",
 		});
@@ -476,7 +476,7 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(clickResult.status.code).toBe("action_sent");
 		expect(ground).toHaveBeenCalledTimes(2);
 		expect(ground.mock.calls[0]?.[0]).toMatchObject({
-			action: "read",
+			action: "observe",
 		});
 		expect(ground.mock.calls[1]?.[0]).toMatchObject({
 			action: "click",
@@ -924,8 +924,9 @@ describe("ComputerUseGuiRuntime", () => {
 			.mockResolvedValueOnce(groundedTarget("File row", { x: 92, y: 140 }));
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.rightClick({
+		const result = await runtime.click({
 			target: "File row",
+			button: "right",
 		});
 
 		expect(result.status.code).toBe("action_sent");
@@ -940,8 +941,9 @@ describe("ComputerUseGuiRuntime", () => {
 			.mockResolvedValueOnce(groundedTarget("Open item", { x: 80, y: 96 }));
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.doubleClick({
+		const result = await runtime.click({
 			target: "Open item",
+			clicks: 2,
 		});
 
 		expect(result.status.code).toBe("action_sent");
@@ -956,8 +958,9 @@ describe("ComputerUseGuiRuntime", () => {
 			.mockResolvedValueOnce(groundedTarget("Info icon", { x: 160, y: 104 }));
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.hover({
+		const result = await runtime.click({
 			target: "Info icon",
+			button: "none",
 			settleMs: 320,
 		});
 
@@ -980,10 +983,10 @@ describe("ComputerUseGuiRuntime", () => {
 			.mockResolvedValueOnce(groundedTarget("Record button", { x: 220, y: 180 }));
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.clickAndHold({
+		const result = await runtime.click({
 			target: "Record button",
 			groundingMode: "complex",
-			holdDurationMs: 900,
+			holdMs: 900,
 		});
 
 		expect(result.status.code).toBe("action_sent");
@@ -1210,11 +1213,11 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(focusClickCall?.env.UNDERSTUDY_GUI_ACTIVATE_APP).toBe("1");
 	});
 
-	it("sends hotkey actions", async () => {
+	it("sends key actions with modifiers", async () => {
 		const ground = vi.fn();
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.hotkey({
+		const result = await runtime.key({
 			key: "k",
 			modifiers: ["command"],
 		});
@@ -1228,11 +1231,11 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(ground).not.toHaveBeenCalled();
 	});
 
-	it("sends keypress actions", async () => {
+	it("sends key actions with repeat", async () => {
 		const ground = vi.fn();
 		const runtime = createRuntime(ground);
 
-		const result = await runtime.keypress({
+		const result = await runtime.key({
 			key: "ArrowDown",
 			repeat: 2,
 		});
@@ -1269,8 +1272,10 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 		expect(ground.mock.calls[0]?.[0]).toMatchObject({
 			action: "wait",
-			groundingMode: "complex",
 		});
+		// wait should not default to "complex" — its validation round is always
+		// suppressed in the provider, so requesting "complex" would be misleading.
+		expect(ground.mock.calls[0]?.[0].groundingMode).toBeUndefined();
 	});
 
 	it("falls back to display capture for later app-scoped wait probes when window probes keep missing", async () => {
@@ -1294,17 +1299,15 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 		expect(ground.mock.calls[0]?.[0]).toMatchObject({
 			action: "wait",
-			groundingMode: "complex",
 			captureMode: "window",
 		});
+		expect(ground.mock.calls[0]?.[0].groundingMode).toBeUndefined();
 		expect(ground.mock.calls[1]?.[0]).toMatchObject({
 			action: "wait",
-			groundingMode: "complex",
 			captureMode: "display",
 		});
 		expect(ground.mock.calls[2]?.[0]).toMatchObject({
 			action: "wait",
-			groundingMode: "complex",
 			captureMode: "display",
 		});
 	});

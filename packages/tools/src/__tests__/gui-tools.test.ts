@@ -2,15 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
 	createDefaultGuiRuntime,
 	createGuiClickTool,
-	createGuiClickAndHoldTool,
-	createGuiDoubleClickTool,
 	createGuiDragTool,
-	createGuiHoverTool,
-	createGuiHotkeyTool,
-	createGuiKeypressTool,
-	createGuiReadTool,
-	createGuiRightClickTool,
-	createGuiScreenshotTool,
+	createGuiKeyTool,
+	createGuiMoveTool,
+	createGuiObserveTool,
 	createGuiScrollTool,
 	createGuiTypeTool,
 	createGuiWaitTool,
@@ -19,7 +14,7 @@ import {
 
 function createRuntime() {
 	return {
-		read: vi.fn().mockResolvedValue({
+		observe: vi.fn().mockResolvedValue({
 			text: "Observed Mail compose window",
 			observation: {
 				platform: process.platform,
@@ -40,6 +35,11 @@ function createRuntime() {
 			details: {
 				grounding_method: "grounding",
 			},
+			image: {
+				data: Buffer.from("png-bytes").toString("base64"),
+				mimeType: "image/png",
+				filename: "gui-screenshot.png",
+			},
 		}),
 		click: vi.fn().mockResolvedValue({
 			text: "Clicked Send button",
@@ -50,52 +50,6 @@ function createRuntime() {
 			details: {
 				grounding_method: "grounding",
 				confidence: 0.91,
-			},
-		}),
-		rightClick: vi.fn().mockResolvedValue({
-			text: "Right-clicked Send button",
-			status: {
-				code: "action_sent",
-				summary: "Opened context menu",
-			},
-			details: {
-				grounding_method: "grounding",
-				confidence: 0.9,
-			},
-		}),
-		doubleClick: vi.fn().mockResolvedValue({
-			text: "Double-clicked Downloads folder",
-			status: {
-				code: "action_sent",
-				summary: "Opened Downloads folder",
-			},
-			details: {
-				grounding_method: "grounding",
-				confidence: 0.9,
-			},
-		}),
-		hover: vi.fn().mockResolvedValue({
-			text: "Hovered over Preview card",
-			status: {
-				code: "action_sent",
-				summary: "Hovered preview card",
-			},
-			details: {
-				grounding_method: "grounding",
-				confidence: 0.89,
-				settle_ms: 240,
-			},
-		}),
-		clickAndHold: vi.fn().mockResolvedValue({
-			text: "Clicked and held Record button",
-			status: {
-				code: "action_sent",
-				summary: "Pressed and held record button",
-			},
-			details: {
-				grounding_method: "grounding",
-				confidence: 0.86,
-				hold_duration_ms: 900,
 			},
 		}),
 		drag: vi.fn().mockResolvedValue({
@@ -131,7 +85,7 @@ function createRuntime() {
 				confidence: 0.88,
 			},
 		}),
-		keypress: vi.fn().mockResolvedValue({
+		key: vi.fn().mockResolvedValue({
 			text: "Pressed Enter",
 			status: {
 				code: "action_sent",
@@ -140,32 +94,6 @@ function createRuntime() {
 			details: {
 				grounding_method: "visual",
 				confidence: 1,
-			},
-		}),
-		hotkey: vi.fn().mockResolvedValue({
-			text: "Sent Command+K",
-			status: {
-				code: "action_sent",
-				summary: "Command+K sent",
-			},
-			details: {
-				grounding_method: "visual",
-			},
-		}),
-		screenshot: vi.fn().mockResolvedValue({
-			text: "Captured GUI screenshot",
-			status: {
-				code: "observed",
-				summary: "GUI screenshot captured",
-			},
-			details: {
-				grounding_method: "screenshot",
-				mimeType: "image/png",
-			},
-			image: {
-				data: Buffer.from("png-bytes").toString("base64"),
-				mimeType: "image/png",
-				filename: "gui-screenshot.png",
 			},
 		}),
 		wait: vi.fn().mockResolvedValue({
@@ -178,49 +106,52 @@ function createRuntime() {
 				grounding_method: "grounding",
 			},
 		}),
+		move: vi.fn().mockResolvedValue({
+			text: "Moved cursor to (100, 200)",
+			status: {
+				code: "action_sent",
+				summary: "Cursor moved",
+			},
+			details: {
+				grounding_method: "grounding",
+			},
+		}),
 	};
 }
 
 describe("gui tool wrappers", () => {
 	it("exposes first-class gui tools and forwards structured runtime results", async () => {
 		const runtime = createRuntime();
-		const readTool = createGuiReadTool(runtime as any);
+		const observeTool = createGuiObserveTool(runtime as any);
 		const clickTool = createGuiClickTool(runtime as any);
-		const rightClickTool = createGuiRightClickTool(runtime as any);
-		const doubleClickTool = createGuiDoubleClickTool(runtime as any);
-		const hoverTool = createGuiHoverTool(runtime as any);
-		const clickAndHoldTool = createGuiClickAndHoldTool(runtime as any);
 		const dragTool = createGuiDragTool(runtime as any);
 		const scrollTool = createGuiScrollTool(runtime as any);
 		const typeTool = createGuiTypeTool(runtime as any);
-		const keypressTool = createGuiKeypressTool(runtime as any);
-		const hotkeyTool = createGuiHotkeyTool(runtime as any);
-		const screenshotTool = createGuiScreenshotTool(runtime as any);
+		const keyTool = createGuiKeyTool(runtime as any);
 		const waitTool = createGuiWaitTool(runtime as any);
+		const moveTool = createGuiMoveTool(runtime as any);
 
-		expect(readTool.name).toBe("gui_read");
+		expect(observeTool.name).toBe("gui_observe");
 		expect(clickTool.name).toBe("gui_click");
-		expect(rightClickTool.name).toBe("gui_right_click");
-		expect(doubleClickTool.name).toBe("gui_double_click");
-		expect(hoverTool.name).toBe("gui_hover");
-		expect(clickAndHoldTool.name).toBe("gui_click_and_hold");
 		expect(dragTool.name).toBe("gui_drag");
 		expect(scrollTool.name).toBe("gui_scroll");
 		expect(typeTool.name).toBe("gui_type");
-		expect(keypressTool.name).toBe("gui_keypress");
-		expect(hotkeyTool.name).toBe("gui_hotkey");
-		expect(screenshotTool.name).toBe("gui_screenshot");
+		expect(keyTool.name).toBe("gui_key");
 		expect(waitTool.name).toBe("gui_wait");
+		expect(moveTool.name).toBe("gui_move");
 
-		const readResult = await readTool.execute("tool-1", { app: "Mail", target: "Send button" });
-		expect((readResult.content[0] as any).text).toContain("Observed Mail compose window");
-			expect(readResult.details).toMatchObject({
+		// gui_observe
+		const observeResult = await observeTool.execute("tool-1", { app: "Mail", target: "Send button" });
+		expect((observeResult.content[0] as any).text).toContain("Observed Mail compose window");
+			expect(observeResult.details).toMatchObject({
 				observation: expect.objectContaining({ appName: "Mail", method: "screenshot" }),
 				resolution: expect.objectContaining({ reason: "Matched Send button" }),
 				status: expect.objectContaining({ code: "observed" }),
 				grounding_method: "grounding",
 			});
+		expect(runtime.observe).toHaveBeenCalledWith({ app: "Mail", target: "Send button" }, undefined);
 
+		// gui_click — basic left click with window selector
 		const clickResult = await clickTool.execute("tool-2", {
 			target: "Send button",
 			captureMode: "display",
@@ -245,41 +176,36 @@ describe("gui tool wrappers", () => {
 				confidence: 0.91,
 			});
 
-		const rightClickResult = await rightClickTool.execute("tool-2b", { target: "Send button" });
-		expect((rightClickResult.content[0] as any).text).toContain("Right-clicked Send button");
-			expect(rightClickResult.details).toMatchObject({
-				status: expect.objectContaining({ code: "action_sent" }),
-				confidence: 0.9,
-			});
+		// gui_click with button:"right"
+		runtime.click.mockClear();
+		const rightClickResult = await clickTool.execute("tool-2b", { target: "Send button", button: "right" });
+		expect((rightClickResult.content[0] as any).text).toContain("Clicked Send button");
+		expect(runtime.click).toHaveBeenCalledWith({ target: "Send button", button: "right" }, undefined);
 
-		const doubleClickResult = await doubleClickTool.execute("tool-3", { target: "Downloads folder" });
-		expect((doubleClickResult.content[0] as any).text).toContain("Double-clicked Downloads folder");
-			expect(doubleClickResult.details).toMatchObject({
-				status: expect.objectContaining({ code: "action_sent" }),
-				confidence: 0.9,
-			});
+		// gui_click with clicks:2
+		runtime.click.mockClear();
+		const doubleClickResult = await clickTool.execute("tool-3", { target: "Downloads folder", clicks: 2 });
+		expect((doubleClickResult.content[0] as any).text).toContain("Clicked Send button");
+		expect(runtime.click).toHaveBeenCalledWith({ target: "Downloads folder", clicks: 2 }, undefined);
 
-		const hoverResult = await hoverTool.execute("tool-3b", {
+		// gui_click with button:"none" (hover)
+		runtime.click.mockClear();
+		const hoverResult = await clickTool.execute("tool-3b", {
 			target: "Preview card",
+			button: "none",
 			settleMs: 240,
 		});
-		expect((hoverResult.content[0] as any).text).toContain("Hovered over Preview card");
-			expect(hoverResult.details).toMatchObject({
-				status: expect.objectContaining({ code: "action_sent" }),
-				confidence: 0.89,
-				settle_ms: 240,
-			});
+		expect((hoverResult.content[0] as any).text).toContain("Clicked Send button");
+		expect(runtime.click).toHaveBeenCalledWith({ target: "Preview card", button: "none", settleMs: 240 }, undefined);
 
-		const clickAndHoldResult = await clickAndHoldTool.execute("tool-3c", {
+		// gui_click with holdMs (click and hold)
+		runtime.click.mockClear();
+		const clickAndHoldResult = await clickTool.execute("tool-3c", {
 			target: "Record button",
-			holdDurationMs: 900,
+			holdMs: 900,
 		});
-		expect((clickAndHoldResult.content[0] as any).text).toContain("Clicked and held Record button");
-			expect(clickAndHoldResult.details).toMatchObject({
-				status: expect.objectContaining({ code: "action_sent" }),
-				confidence: 0.86,
-				hold_duration_ms: 900,
-			});
+		expect((clickAndHoldResult.content[0] as any).text).toContain("Clicked Send button");
+		expect(runtime.click).toHaveBeenCalledWith({ target: "Record button", holdMs: 900 }, undefined);
 
 		const dragResult = await dragTool.execute("tool-4", { fromTarget: "draft.txt", toTarget: "Trash" });
 		expect((dragResult.content[0] as any).text).toContain("Dragged file to Trash");
@@ -302,26 +228,41 @@ describe("gui tool wrappers", () => {
 				confidence: 0.88,
 			});
 
-		const keypressResult = await keypressTool.execute("tool-7", { key: "Enter" });
-		expect((keypressResult.content[0] as any).text).toContain("Pressed Enter");
-			expect(keypressResult.details).toMatchObject({
+		// gui_key — single key press
+		const keyResult = await keyTool.execute("tool-7", { key: "Enter" });
+		expect((keyResult.content[0] as any).text).toContain("Pressed Enter");
+			expect(keyResult.details).toMatchObject({
 				status: expect.objectContaining({ code: "action_sent" }),
 				confidence: 1,
 			});
 
-		const hotkeyResult = await hotkeyTool.execute("tool-8", { key: "k", modifiers: ["command"] });
+		// gui_key — with modifiers
+		runtime.key.mockClear();
+		runtime.key.mockResolvedValueOnce({
+			text: "Sent Command+K",
+			status: {
+				code: "action_sent",
+				summary: "Command+K sent",
+			},
+			details: {
+				grounding_method: "visual",
+			},
+		});
+		const hotkeyResult = await keyTool.execute("tool-8", { key: "k", modifiers: ["command"] });
 		expect((hotkeyResult.content[0] as any).text).toContain("Sent Command+K");
 			expect(hotkeyResult.details).toMatchObject({
 				status: expect.objectContaining({ code: "action_sent" }),
 			});
+		expect(runtime.key).toHaveBeenCalledWith({ key: "k", modifiers: ["command"] }, undefined);
 
-		const screenshotResult = await screenshotTool.execute("tool-9", { app: "Mail", captureMode: "window" });
-		expect((screenshotResult.content[0] as any).text).toContain("Captured GUI screenshot");
-		expect((screenshotResult.content[1] as any).mimeType).toBe("image/png");
-		expect(runtime.screenshot).toHaveBeenCalledWith({ app: "Mail", captureMode: "window" }, undefined);
-			expect(screenshotResult.details).toMatchObject({
+		// gui_observe returns screenshot image
+		runtime.observe.mockClear();
+		const observeScreenshotResult = await observeTool.execute("tool-9", { app: "Mail", captureMode: "window" });
+		expect((observeScreenshotResult.content[0] as any).text).toContain("Observed Mail compose window");
+		expect((observeScreenshotResult.content[1] as any).mimeType).toBe("image/png");
+		expect(runtime.observe).toHaveBeenCalledWith({ app: "Mail", captureMode: "window" }, undefined);
+			expect(observeScreenshotResult.details).toMatchObject({
 				status: expect.objectContaining({ code: "observed" }),
-				mimeType: "image/png",
 			});
 
 		const waitResult = await waitTool.execute("tool-10", { target: "Sent", state: "appear" });
@@ -329,6 +270,11 @@ describe("gui tool wrappers", () => {
 		expect(waitResult.details).toMatchObject({
 			status: expect.objectContaining({ code: "condition_met" }),
 		});
+
+		// gui_move
+		const moveResult = await moveTool.execute("tool-11", { x: 100, y: 200 });
+		expect((moveResult.content[0] as any).text).toContain("Moved cursor to (100, 200)");
+		expect(runtime.move).toHaveBeenCalledWith({ x: 100, y: 200 }, undefined);
 	});
 
 	it("reuses the configured default gui runtime when one is provided", () => {
@@ -337,6 +283,9 @@ describe("gui tool wrappers", () => {
 		try {
 			expect(createDefaultGuiRuntime()).toBe(runtime);
 			expect(createGuiClickTool().execute).toBeTypeOf("function");
+			expect(createGuiObserveTool().execute).toBeTypeOf("function");
+			expect(createGuiKeyTool().execute).toBeTypeOf("function");
+			expect(createGuiMoveTool().execute).toBeTypeOf("function");
 		} finally {
 			setDefaultGuiRuntime(undefined);
 		}
@@ -431,10 +380,10 @@ describe("gui tool wrappers", () => {
 	it("returns structured error text when the runtime throws", async () => {
 		const runtime = {
 			click: vi.fn().mockRejectedValue(new Error("GUI control permission denied")),
-			screenshot: vi.fn().mockRejectedValue(new Error("Screen Recording permission denied")),
+			observe: vi.fn().mockRejectedValue(new Error("Screen Recording permission denied")),
 		};
 		const clickTool = createGuiClickTool(runtime as any);
-		const screenshotTool = createGuiScreenshotTool(runtime as any);
+		const observeTool = createGuiObserveTool(runtime as any);
 
 		const clickResult = await clickTool.execute("tool-11", { target: "Send button" });
 		expect((clickResult.content[0] as any).text).toContain("GUI click failed: GUI control permission denied");
@@ -443,32 +392,32 @@ describe("gui tool wrappers", () => {
 			grounding_method: "grounding",
 		});
 
-		const screenshotResult = await screenshotTool.execute("tool-12", {});
-		expect((screenshotResult.content[0] as any).text).toContain("GUI screenshot failed: Screen Recording permission denied");
-		expect(screenshotResult.details).toMatchObject({
+		const observeResult = await observeTool.execute("tool-12", {});
+		expect((observeResult.content[0] as any).text).toContain("GUI observe failed: Screen Recording permission denied");
+		expect(observeResult.details).toMatchObject({
 			error: "Screen Recording permission denied",
-			grounding_method: "screenshot",
+			grounding_method: "grounding",
 		});
 	});
 
 	it("propagates aborts promptly for long-running gui runtime calls", async () => {
-		let resolveRead: ((value: unknown) => void) | undefined;
+		let resolveObserve: ((value: unknown) => void) | undefined;
 		const runtime = {
-			read: vi.fn(
+			observe: vi.fn(
 				() =>
 					new Promise((resolve) => {
-						resolveRead = resolve;
+						resolveObserve = resolve;
 					}),
 			),
 		};
-		const readTool = createGuiReadTool(runtime as any);
+		const observeTool = createGuiObserveTool(runtime as any);
 		const controller = new AbortController();
 
-		const pending = readTool.execute("tool-abort", { target: "Send button" }, controller.signal);
+		const pending = observeTool.execute("tool-abort", { target: "Send button" }, controller.signal);
 		controller.abort();
 
 		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-		resolveRead?.({
+		resolveObserve?.({
 			text: "Observed Send button",
 				status: {
 					code: "observed",
@@ -550,33 +499,28 @@ describe("gui tool wrappers", () => {
 				nativeHelperAvailable: true,
 				screenCaptureAvailable: true,
 				inputAvailable: true,
-				enabledToolNames: ["gui_read", "gui_scroll", "gui_type", "gui_keypress", "gui_hotkey", "gui_screenshot"],
-				disabledToolNames: ["gui_click", "gui_right_click", "gui_double_click", "gui_hover", "gui_click_and_hold", "gui_drag", "gui_wait"],
+				enabledToolNames: ["gui_observe", "gui_scroll", "gui_type", "gui_key"],
+				disabledToolNames: ["gui_click", "gui_drag", "gui_wait"],
 				toolAvailability: {
-					gui_read: { enabled: true, targetlessOnly: true, reason: "targetless only" },
+					gui_observe: { enabled: true, targetlessOnly: true, reason: "targetless only" },
 					gui_click: { enabled: false, reason: "grounding unavailable" },
-					gui_right_click: { enabled: false, reason: "grounding unavailable" },
-					gui_double_click: { enabled: false, reason: "grounding unavailable" },
-					gui_hover: { enabled: false, reason: "grounding unavailable" },
-					gui_click_and_hold: { enabled: false, reason: "grounding unavailable" },
 					gui_drag: { enabled: false, reason: "grounding unavailable" },
 					gui_scroll: { enabled: true, targetlessOnly: true, reason: "targetless only" },
 					gui_type: { enabled: true, targetlessOnly: true, reason: "targetless only" },
-					gui_keypress: { enabled: true },
-					gui_hotkey: { enabled: true },
-					gui_screenshot: { enabled: true, targetlessOnly: true, reason: "targetless only" },
+					gui_key: { enabled: true },
 					gui_wait: { enabled: false, reason: "grounding unavailable" },
+					gui_move: { enabled: true },
 				},
 			}),
 		};
-		const readTool = createGuiReadTool(runtime as any);
+		const observeTool = createGuiObserveTool(runtime as any);
 		const clickTool = createGuiClickTool(runtime as any);
 		const typeTool = createGuiTypeTool(runtime as any);
-		const keypressTool = createGuiKeypressTool(runtime as any);
+		const keyTool = createGuiKeyTool(runtime as any);
 
-		const readResult = await readTool.execute("tool-read-limited", { target: "Send button" });
-		expect((readResult.content[0] as any).text).toContain("GUI Read unavailable");
-		expect(runtime.read).not.toHaveBeenCalled();
+		const observeResult = await observeTool.execute("tool-observe-limited", { target: "Send button" });
+		expect((observeResult.content[0] as any).text).toContain("GUI Observe unavailable");
+		expect(runtime.observe).not.toHaveBeenCalled();
 
 		const clickResult = await clickTool.execute("tool-click-limited", { target: "Send button" });
 		expect((clickResult.content[0] as any).text).toContain("GUI Click unavailable");
@@ -586,11 +530,11 @@ describe("gui tool wrappers", () => {
 		expect((typeResult.content[0] as any).text).toContain("GUI Type unavailable");
 		expect(runtime.type).not.toHaveBeenCalled();
 
-		const keypressResult = await keypressTool.execute("tool-keypress-limited", {
+		const keyResult = await keyTool.execute("tool-key-limited", {
 			key: "Enter",
 		});
-		expect((keypressResult.content[0] as any).text).toContain("Pressed Enter");
-		expect(runtime.keypress).toHaveBeenCalled();
+		expect((keyResult.content[0] as any).text).toContain("Pressed Enter");
+		expect(runtime.key).toHaveBeenCalled();
 	});
 
 	it("emits progress updates while a GUI action is running", async () => {

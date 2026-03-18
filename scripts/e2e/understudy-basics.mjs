@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..");
+const packageJsonPath = join(repoRoot, "package.json");
+const packageVersion = JSON.parse(await readFile(packageJsonPath, "utf8")).version?.trim() || "unknown";
 const testHome = process.env.TEST_HOME?.trim() || await mkdtemp(join(tmpdir(), "understudy-basics-"));
 const requestedPort = Number.parseInt(process.env.TEST_PORT ?? "18835", 10);
 const lockRequestedPort = typeof process.env.TEST_PORT === "string" && process.env.TEST_PORT.trim().length > 0;
@@ -262,7 +264,7 @@ try {
 		assert(result.response.trim() === outputPath, `unexpected output path: ${result.response}`);
 		const fileText = await readFile(outputPath, "utf8");
 		assert(fileText.includes("Understudy"), "generated facts file missing project title");
-		assert(fileText.includes("0.1.0"), "generated facts file missing version");
+		assert(fileText.includes(packageVersion), "generated facts file missing version");
 		return {
 			detail: summarize(fileText, 260),
 			log: { result, outputPath, fileText },
@@ -309,15 +311,15 @@ try {
 		assert(created.id, "session.create did not return a session id");
 		const first = await rpc("session.send", {
 			sessionId: created.id,
-			message: `读取 ${join(repoRoot, "README.md")} 的标题并记住它。只回复 READY。`,
+			message: `读取 ${join(repoRoot, "package.json")} 里的 version 字段并记住它。只回复 READY。`,
 		});
 		assert(first.response.trim() === "READY", `unexpected first session reply: ${first.response}`);
 		const second = await rpc("session.send", {
 			sessionId: created.id,
-			message: "刚才你记住的 README 标题是什么？只回答标题。",
+			message: "刚才你记住的版本号是什么？只回答版本号。",
 		});
 		assert(
-			normalizeTitle(second.response) === "Understudy",
+			second.response.trim() === packageVersion,
 			`unexpected follow-up reply: ${second.response}`,
 		);
 		return {
@@ -331,7 +333,7 @@ try {
 		await writeFile(logPath, [
 			"Run pnpm test",
 			"",
-			"> app@0.1.0 test /workspace/app",
+			"> app@1.2.3 test /workspace/app",
 			"> vitest --run",
 			"",
 			" FAIL  src/user-service.test.ts > createUser > rejects duplicate email",

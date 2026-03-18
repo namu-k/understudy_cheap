@@ -24,19 +24,14 @@ const BUILTIN_META: Record<string, { riskLevel: ToolRiskLevel; category: ToolCat
 };
 
 const KNOWN_TOOL_META: Record<string, { riskLevel: ToolRiskLevel; category: ToolCategory }> = {
-	gui_read: { riskLevel: "execute", category: "gui" },
+	gui_observe: { riskLevel: "execute", category: "gui" },
 	gui_click: { riskLevel: "execute", category: "gui" },
-	gui_right_click: { riskLevel: "execute", category: "gui" },
-	gui_double_click: { riskLevel: "execute", category: "gui" },
-	gui_hover: { riskLevel: "execute", category: "gui" },
-	gui_click_and_hold: { riskLevel: "execute", category: "gui" },
 	gui_drag: { riskLevel: "execute", category: "gui" },
 	gui_scroll: { riskLevel: "execute", category: "gui" },
 	gui_type: { riskLevel: "execute", category: "gui" },
-	gui_keypress: { riskLevel: "execute", category: "gui" },
-	gui_hotkey: { riskLevel: "execute", category: "gui" },
-	gui_screenshot: { riskLevel: "execute", category: "gui" },
+	gui_key: { riskLevel: "execute", category: "gui" },
 	gui_wait: { riskLevel: "execute", category: "gui" },
+	gui_move: { riskLevel: "execute", category: "gui" },
 	browser: { riskLevel: "execute", category: "browser" },
 	web_search: { riskLevel: "network", category: "web" },
 	web_fetch: { riskLevel: "network", category: "web" },

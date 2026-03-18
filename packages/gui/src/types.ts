@@ -1,17 +1,28 @@
 export type GuiActionType =
-	| "read"
+	| "observe"
+	| "click"
+	| "drag"
+	| "scroll"
+	| "type"
+	| "key"
+	| "wait"
+	| "move";
+
+export type GuiGroundingActionIntent =
+	| "observe"
 	| "click"
 	| "right_click"
 	| "double_click"
 	| "hover"
 	| "click_and_hold"
 	| "drag"
+	| "drag_source"
+	| "drag_destination"
 	| "scroll"
 	| "type"
-	| "keypress"
-	| "hotkey"
-	| "screenshot"
-	| "wait";
+	| "key"
+	| "wait"
+	| "move";
 
 export type GuiCaptureMode = "window" | "display";
 
@@ -77,10 +88,6 @@ export type GuiGroundingFailureKind =
 export function normalizeGuiGroundingMode(mode?: GuiGroundingMode): GuiGroundingMode {
 	return mode === "complex" ? "complex" : "single";
 }
-export type GuiGroundingActionIntent =
-	| GuiActionType
-	| "drag_source"
-	| "drag_destination";
 
 export interface GuiGroundingFailure {
 	summary: string;
@@ -136,7 +143,7 @@ export interface GuiGroundingProvider {
 	ground(params: GuiGroundingRequest): Promise<GuiGroundingResult | undefined>;
 }
 
-export interface GuiReadParams {
+export interface GuiObserveParams {
 	app?: string;
 	target?: string;
 	groundingMode?: GuiGroundingMode;
@@ -145,6 +152,7 @@ export interface GuiReadParams {
 	captureMode?: GuiCaptureMode;
 	windowTitle?: string;
 	windowSelector?: GuiWindowSelector;
+	returnImage?: boolean;
 }
 
 export interface GuiClickParams {
@@ -156,52 +164,10 @@ export interface GuiClickParams {
 	captureMode?: GuiCaptureMode;
 	windowTitle?: string;
 	windowSelector?: GuiWindowSelector;
-}
-
-export interface GuiRightClickParams {
-	app?: string;
-	target?: string;
-	groundingMode?: GuiGroundingMode;
-	locationHint?: string;
-	scope?: string;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
-}
-
-export interface GuiDoubleClickParams {
-	app?: string;
-	target?: string;
-	groundingMode?: GuiGroundingMode;
-	locationHint?: string;
-	scope?: string;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
-}
-
-export interface GuiHoverParams {
-	app?: string;
-	target?: string;
-	groundingMode?: GuiGroundingMode;
-	locationHint?: string;
-	scope?: string;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
+	button?: "left" | "right" | "none";
+	clicks?: number;
+	holdMs?: number;
 	settleMs?: number;
-}
-
-export interface GuiClickAndHoldParams {
-	app?: string;
-	target?: string;
-	groundingMode?: GuiGroundingMode;
-	locationHint?: string;
-	scope?: string;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
-	holdDurationMs?: number;
 }
 
 export interface GuiDragParams {
@@ -247,32 +213,11 @@ export interface GuiTypeParams {
 	submit?: boolean;
 }
 
-export interface GuiHotkeyParams {
+export interface GuiKeyParams {
 	app?: string;
 	key: string;
 	modifiers?: string[];
 	repeat?: number;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
-}
-
-export interface GuiKeypressParams {
-	app?: string;
-	key: string;
-	modifiers?: string[];
-	repeat?: number;
-	captureMode?: GuiCaptureMode;
-	windowTitle?: string;
-	windowSelector?: GuiWindowSelector;
-}
-
-export interface GuiScreenshotParams {
-	app?: string;
-	target?: string;
-	groundingMode?: GuiGroundingMode;
-	locationHint?: string;
-	scope?: string;
 	captureMode?: GuiCaptureMode;
 	windowTitle?: string;
 	windowSelector?: GuiWindowSelector;
@@ -290,6 +235,12 @@ export interface GuiWaitParams {
 	state?: "appear" | "disappear";
 	timeoutMs?: number;
 	intervalMs?: number;
+}
+
+export interface GuiMoveParams {
+	x: number;
+	y: number;
+	app?: string;
 }
 
 export interface GuiActionResult {

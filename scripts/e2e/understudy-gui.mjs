@@ -44,20 +44,44 @@ async function runCommand(label, command, args, env = {}) {
 	});
 }
 
+function buildCombinedOutput(result) {
+	return `${result.stdout}\n${result.stderr}`;
+}
+
 function summarizeOutput(result) {
-	const combined = `${result.stdout}\n${result.stderr}`.trim().replace(/\s+/g, " ");
+	const combined = buildCombinedOutput(result).trim().replace(/\s+/g, " ");
 	return combined.length <= 260 ? combined : `${combined.slice(0, 257)}...`;
 }
 
-async function runCase(id, title, command, args, env) {
+function ensureExpectedTestRan(result, expectedText) {
+	const combined = buildCombinedOutput(result);
+	if (!combined.includes(expectedText)) {
+		throw new Error(`Expected test output to include "${expectedText}", but the matching real smoke did not run.`);
+	}
+	if (/Tests\s+\d+\s+skipped/.test(combined) && !/✓/.test(combined)) {
+		throw new Error("Vitest reported only skipped tests for this case.");
+	}
+}
+
+async function runCase(id, title, command, args, env, validateResult) {
 	const startedAt = Date.now();
 	const result = await runCommand(title, command, args, env);
+	let status = result.code === 0 ? "pass" : "fail";
+	let detail = summarizeOutput(result);
+	if (status === "pass" && typeof validateResult === "function") {
+		try {
+			validateResult(result);
+		} catch (error) {
+			status = "fail";
+			detail = error instanceof Error ? error.message : String(error);
+		}
+	}
 	cases.push({
 		id,
 		title,
-		status: result.code === 0 ? "pass" : "fail",
+		status,
 		durationMs: Date.now() - startedAt,
-		detail: summarizeOutput(result),
+		detail,
 		outputPath: join(testHome, `${id}.log`),
 	});
 	await writeFile(
@@ -94,20 +118,22 @@ await runCase(
 	"G-02",
 	"GUI Runtime Browser Smoke",
 	"pnpm",
-	["exec", "vitest", "--run", "-t", "drives click, right click, double click, hover, click and hold, drag, scroll, type, keypress, hotkey, screenshot, and wait against a real browser window", "packages/gui/src/__tests__/runtime.real.test.ts"],
+	["exec", "vitest", "--run", "-t", "drives all 8 GUI operations through a grounded browser end-to-end scenario", "packages/gui/src/__tests__/runtime.real.test.ts"],
 	{
 		UNDERSTUDY_RUN_REAL_GUI_TESTS: "1",
 	},
+	(result) => ensureExpectedTestRan(result, "drives all 8 GUI operations through a grounded browser end-to-end scenario"),
 );
 
 await runCase(
 	"G-03",
 	"GUI Runtime Finder Smoke",
 	"pnpm",
-	["exec", "vitest", "--run", "-t", "drives native Finder navigation hotkey and screenshot flows", "packages/gui/src/__tests__/runtime.real.test.ts"],
+	["exec", "vitest", "--run", "-t", "drives native Finder navigation, grounded click, and screenshot flows", "packages/gui/src/__tests__/runtime.real.test.ts"],
 	{
 		UNDERSTUDY_RUN_REAL_GUI_TESTS: "1",
 	},
+	(result) => ensureExpectedTestRan(result, "drives native Finder navigation, grounded click, and screenshot flows"),
 );
 
 await runCase(
@@ -118,6 +144,7 @@ await runCase(
 	{
 		UNDERSTUDY_RUN_REAL_GUI_TESTS: "1",
 	},
+	(result) => ensureExpectedTestRan(result, "drives native TextEdit hotkey, typing, keypress, and screenshot flows"),
 );
 
 await runCase(
@@ -128,6 +155,7 @@ await runCase(
 	{
 		UNDERSTUDY_RUN_REAL_GUI_TESTS: "1",
 	},
+	(result) => ensureExpectedTestRan(result, "captures a real demo video plus event timeline on macOS"),
 );
 
 const report = [
