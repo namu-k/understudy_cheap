@@ -271,6 +271,28 @@ describe("ComputerUseGuiRuntime", () => {
 		});
 	});
 
+	it("keeps gui_move available without grounding when input is available", () => {
+		const runtime = new ComputerUseGuiRuntime({
+			environmentReadiness: {
+				status: "ready",
+				checkedAt: 1,
+				checks: [
+					{ id: "platform", label: "Platform", status: "ok", summary: "macOS GUI runtime is available on this host." },
+					{ id: "accessibility", label: "Accessibility", status: "ok", summary: "Accessibility permission is granted for native GUI input." },
+					{ id: "screen_recording", label: "Screen Recording", status: "ok", summary: "Screen Recording permission is granted for GUI screenshots." },
+					{ id: "native_helper", label: "Native GUI Helper", status: "ok", summary: "Native GUI helper is ready for capture and input execution." },
+				],
+			},
+		});
+
+		const capabilities = runtime.describeCapabilities("darwin");
+
+		expect(capabilities.groundingAvailable).toBe(false);
+		expect(capabilities.toolAvailability.gui_move).toMatchObject({
+			enabled: true,
+		});
+	});
+
 	it("captures screenshots with the cursor visible", async () => {
 		const runtime = new ComputerUseGuiRuntime();
 

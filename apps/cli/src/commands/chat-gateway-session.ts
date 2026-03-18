@@ -364,6 +364,94 @@ function messageRole(message: Record<string, unknown> | undefined): string | und
 	return typeof message?.role === "string" ? message.role : undefined;
 }
 
+type SessionManagerStaticApi = {
+	list: (
+		cwd: string,
+		sessionDir?: string,
+		onProgress?: (loaded: number, total: number) => void,
+	) => Promise<unknown[]>;
+	listAll: (onProgress?: (loaded: number, total: number) => void) => Promise<unknown[]>;
+	open: (sessionPath: string, sessionDir?: string) => unknown;
+};
+
+type GatewaySessionManagerOverride = SessionManagerStaticApi;
+
+const sessionManagerStatics = SessionManager as unknown as SessionManagerStaticApi;
+const originalSessionManagerStatics: SessionManagerStaticApi = {
+	list: sessionManagerStatics.list,
+	listAll: sessionManagerStatics.listAll,
+	open: sessionManagerStatics.open,
+};
+const gatewaySessionManagerOverrides = new Map<string, GatewaySessionManagerOverride>();
+const gatewaySessionManagerOverrideOrder: string[] = [];
+let gatewaySessionManagerPatched = false;
+
+function getActiveGatewaySessionManagerOverride(): GatewaySessionManagerOverride | undefined {
+	for (let index = gatewaySessionManagerOverrideOrder.length - 1; index >= 0; index -= 1) {
+		const overrideId = gatewaySessionManagerOverrideOrder[index];
+		if (!overrideId) {
+			continue;
+		}
+		const override = gatewaySessionManagerOverrides.get(overrideId);
+		if (override) {
+			return override;
+		}
+	}
+	return undefined;
+}
+
+function ensureGatewaySessionManagerPatched(): void {
+	if (gatewaySessionManagerPatched) {
+		return;
+	}
+	sessionManagerStatics.list = async (...args) => {
+		const override = getActiveGatewaySessionManagerOverride();
+		return override
+			? await override.list(...args)
+			: await originalSessionManagerStatics.list(...args);
+	};
+	sessionManagerStatics.listAll = async (...args) => {
+		const override = getActiveGatewaySessionManagerOverride();
+		return override
+			? await override.listAll(...args)
+			: await originalSessionManagerStatics.listAll(...args);
+	};
+	sessionManagerStatics.open = (...args) => {
+		const override = getActiveGatewaySessionManagerOverride();
+		return override
+			? override.open(...args)
+			: originalSessionManagerStatics.open(...args);
+	};
+	gatewaySessionManagerPatched = true;
+}
+
+function registerGatewaySessionManagerOverride(
+	override: GatewaySessionManagerOverride,
+): () => void {
+	ensureGatewaySessionManagerPatched();
+	const overrideId = randomUUID();
+	gatewaySessionManagerOverrides.set(overrideId, override);
+	gatewaySessionManagerOverrideOrder.push(overrideId);
+	let released = false;
+	return () => {
+		if (released) {
+			return;
+		}
+		released = true;
+		gatewaySessionManagerOverrides.delete(overrideId);
+		const index = gatewaySessionManagerOverrideOrder.lastIndexOf(overrideId);
+		if (index >= 0) {
+			gatewaySessionManagerOverrideOrder.splice(index, 1);
+		}
+		if (gatewaySessionManagerOverrides.size === 0 && gatewaySessionManagerPatched) {
+			sessionManagerStatics.list = originalSessionManagerStatics.list;
+			sessionManagerStatics.listAll = originalSessionManagerStatics.listAll;
+			sessionManagerStatics.open = originalSessionManagerStatics.open;
+			gatewaySessionManagerPatched = false;
+		}
+	};
+}
+
 export async function createGatewayBackedInteractiveSession(
 	options: CreateGatewayBackedInteractiveSessionOptions,
 ): Promise<InteractiveSessionLike & {
@@ -375,20 +463,6 @@ export async function createGatewayBackedInteractiveSession(
 	const baseSession = options.baseSession;
 	const agent = baseSession.agent;
 	const originalManager = baseSession.sessionManager;
-	const sessionManagerStatics = SessionManager as unknown as {
-		list: (
-			cwd: string,
-			sessionDir?: string,
-			onProgress?: (loaded: number, total: number) => void,
-		) => Promise<unknown[]>;
-		listAll: (onProgress?: (loaded: number, total: number) => void) => Promise<unknown[]>;
-		open: (sessionPath: string, sessionDir?: string) => unknown;
-	};
-	const originalSessionManagerStatics = {
-		list: sessionManagerStatics.list,
-		listAll: sessionManagerStatics.listAll,
-		open: sessionManagerStatics.open,
-	};
 	const gatewayState = {
 		sessionId: undefined as string | undefined,
 		sessionName: undefined as string | undefined,
@@ -420,7 +494,10 @@ export async function createGatewayBackedInteractiveSession(
 			override.defaultThinkingLevel = activeThinkingLevel as UnderstudyConfig["defaultThinkingLevel"];
 		}
 		if (Object.keys(override).length > 0) {
-			return override;
+			return {
+				...options.configOverride,
+				...override,
+			};
 		}
 		return options.configOverride;
 	};
@@ -527,29 +604,7 @@ export async function createGatewayBackedInteractiveSession(
 			};
 		});
 	};
-	sessionManagerStatics.list = async (cwd, _sessionDir, onProgress) =>
-		await listGatewaySessions({ cwd, onProgress, includeAll: false });
-	sessionManagerStatics.listAll = async (onProgress) =>
-		await listGatewaySessions({ onProgress, includeAll: true });
-	sessionManagerStatics.open = (sessionPath: string, sessionDir?: string) => {
-		const sessionId = parseGatewaySessionPath(sessionPath);
-		if (!sessionPath.startsWith(GATEWAY_SESSION_PATH_PREFIX) || !sessionId) {
-			return originalSessionManagerStatics.open(sessionPath, sessionDir);
-		}
-		return {
-			appendSessionInfo(name: string) {
-				const trimmed = name.trim();
-				if (gatewayState.sessionId === sessionId) {
-					gatewayState.sessionName = trimmed || undefined;
-				}
-				void options.client.call("session.patch", {
-					sessionId,
-					sessionName: trimmed,
-				}).catch(() => {});
-				return `${sessionId}:session-info`;
-			},
-		};
-	};
+	let releaseSessionManagerOverride = () => {};
 
 	const replaceMessages = (messages: Array<Record<string, unknown>>) => {
 		const supplemental = (Array.isArray(agent.state.messages) ? agent.state.messages : []).filter((message) => {
@@ -890,9 +945,7 @@ export async function createGatewayBackedInteractiveSession(
 			});
 		}
 		gatewayState.socket = null;
-		sessionManagerStatics.list = originalSessionManagerStatics.list;
-		sessionManagerStatics.listAll = originalSessionManagerStatics.listAll;
-		sessionManagerStatics.open = originalSessionManagerStatics.open;
+		releaseSessionManagerOverride();
 		listeners.clear();
 	};
 
@@ -1333,6 +1386,31 @@ export async function createGatewayBackedInteractiveSession(
 	};
 
 	try {
+		releaseSessionManagerOverride = registerGatewaySessionManagerOverride({
+			list: async (cwd, _sessionDir, onProgress) =>
+				await listGatewaySessions({ cwd, onProgress, includeAll: false }),
+			listAll: async (onProgress) =>
+				await listGatewaySessions({ onProgress, includeAll: true }),
+			open: (sessionPath: string, sessionDir?: string) => {
+				const sessionId = parseGatewaySessionPath(sessionPath);
+				if (!sessionPath.startsWith(GATEWAY_SESSION_PATH_PREFIX) || !sessionId) {
+					return originalSessionManagerStatics.open(sessionPath, sessionDir);
+				}
+				return {
+					appendSessionInfo(name: string) {
+						const trimmed = name.trim();
+						if (gatewayState.sessionId === sessionId) {
+							gatewayState.sessionName = trimmed || undefined;
+						}
+						void options.client.call("session.patch", {
+							sessionId,
+							sessionName: trimmed,
+						}).catch(() => {});
+						return `${sessionId}:session-info`;
+					},
+				};
+			},
+		});
 		const initialSummary = await ensureSession(
 			options.forceNew,
 			options.forceNew ? buildCurrentGatewayConfigOverride() : undefined,

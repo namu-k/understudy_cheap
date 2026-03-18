@@ -44,6 +44,7 @@ vi.mock("@mariozechner/pi-coding-agent", () => ({
 	},
 }));
 
+import { SessionManager } from "@mariozechner/pi-coding-agent";
 import { createGatewayBackedInteractiveSession } from "./chat-gateway-session.js";
 
 function deferred<T>() {
@@ -54,6 +55,55 @@ function deferred<T>() {
 		reject = rej;
 	});
 	return { promise, resolve, reject };
+}
+
+function createBaseSession(overrides: Record<string, unknown> = {}) {
+	return {
+		agent: {
+			state: {
+				messages: [],
+			},
+		},
+		sessionManager: {},
+		model: {
+			provider: "openai",
+			id: "gpt-5",
+		},
+		thinkingLevel: "medium",
+		...overrides,
+	} as any;
+}
+
+function createClient(params: {
+	sessionId: string;
+	workspaceDir?: string;
+	listedSessionIds?: string[];
+}) {
+	return {
+		call: vi.fn(async (method: string, payload?: Record<string, unknown>) => {
+			if (method === "session.create") {
+				return { id: params.sessionId };
+			}
+			if (method === "session.history") {
+				return { sessionId: params.sessionId, messages: [] };
+			}
+			if (method === "session.list") {
+				return (params.listedSessionIds ?? [params.sessionId]).map((sessionId, index) => ({
+					id: sessionId,
+					workspaceDir: params.workspaceDir ?? "/tmp/workspace",
+					createdAt: index + 1,
+					lastActiveAt: index + 2,
+				}));
+			}
+			if (method === "session.patch") {
+				return {
+					id: String(payload?.sessionId ?? params.sessionId),
+					sessionName: payload?.sessionName,
+				};
+			}
+			throw new Error(`unexpected RPC method: ${method}`);
+		}),
+	};
 }
 
 describe("createGatewayBackedInteractiveSession", () => {
@@ -101,5 +151,92 @@ describe("createGatewayBackedInteractiveSession", () => {
 		expect(wsMocks.webSocketCtor).toHaveBeenCalledWith(
 			"https://gateway.example.com/?token=secret-token".replace("https://", "wss://"),
 		);
+
+		const session = await pendingSession;
+		await session.close();
+	});
+
+	it("merges static config overrides into force-new gateway sessions", async () => {
+		const client = createClient({ sessionId: "gateway-session-1" });
+
+		const session = await createGatewayBackedInteractiveSession({
+			baseSession: createBaseSession({
+				model: {
+					provider: "anthropic",
+					id: "claude-sonnet-4",
+				},
+				thinkingLevel: "high",
+			}),
+			client: client as any,
+			gatewayUrl: "https://gateway.example.com",
+			cwd: "/tmp/workspace",
+			forceNew: true,
+			configOverride: {
+				browser: {
+					connectionMode: "managed",
+				},
+			} as any,
+		});
+
+		expect(client.call).toHaveBeenCalledWith("session.create", expect.objectContaining({
+			configOverride: expect.objectContaining({
+				browser: {
+					connectionMode: "managed",
+				},
+				defaultProvider: "anthropic",
+				defaultModel: "claude-sonnet-4",
+				defaultThinkingLevel: "high",
+			}),
+		}));
+
+		await session.close();
+	});
+
+	it("keeps SessionManager routing stable when gateway wrappers close out of order", async () => {
+		const originalListAll = SessionManager.listAll;
+		const firstClient = createClient({
+			sessionId: "gateway-session-1",
+			listedSessionIds: ["gateway-session-1"],
+			workspaceDir: "/tmp/workspace-1",
+		});
+		const secondClient = createClient({
+			sessionId: "gateway-session-2",
+			listedSessionIds: ["gateway-session-2"],
+			workspaceDir: "/tmp/workspace-2",
+		});
+
+		const firstSession = await createGatewayBackedInteractiveSession({
+			baseSession: createBaseSession(),
+			client: firstClient as any,
+			gatewayUrl: "https://gateway-1.example.com",
+			cwd: "/tmp/workspace-1",
+			forceNew: true,
+		});
+		const secondSession = await createGatewayBackedInteractiveSession({
+			baseSession: createBaseSession(),
+			client: secondClient as any,
+			gatewayUrl: "https://gateway-2.example.com",
+			cwd: "/tmp/workspace-2",
+			forceNew: true,
+		});
+
+		await expect(SessionManager.listAll()).resolves.toEqual([
+			expect.objectContaining({ id: "gateway-session-2" }),
+		]);
+		const listCallsBeforeFirstClose = secondClient.call.mock.calls.filter(([method]) => method === "session.list").length;
+
+		await firstSession.close();
+
+		await expect(SessionManager.listAll()).resolves.toEqual([
+			expect.objectContaining({ id: "gateway-session-2" }),
+		]);
+		expect(
+			secondClient.call.mock.calls.filter(([method]) => method === "session.list").length,
+		).toBe(listCallsBeforeFirstClose + 1);
+
+		await secondSession.close();
+
+		expect(SessionManager.listAll).toBe(originalListAll);
+		await expect(SessionManager.listAll()).resolves.toEqual([]);
 	});
 });

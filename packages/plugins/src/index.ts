@@ -6,6 +6,8 @@ export type {
 	UnderstudyPluginCliRegistrar,
 	UnderstudyPluginConfigSchema,
 	UnderstudyPluginConfigSchemaRegistration,
+	UnderstudyPluginConfigUiHint,
+	UnderstudyPluginConfigValidation,
 	UnderstudyPluginDiagnostic,
 	UnderstudyPluginGatewayMethodHandler,
 	UnderstudyPluginHookEvent,

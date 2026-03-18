@@ -1531,14 +1531,14 @@ export class ComputerUseGuiRuntime {
 			grounding_model_image: telemetry.modelImage,
 			grounding_working_image: telemetry.workingImage,
 			grounding_original_image: telemetry.originalImage,
-				grounding_request_image: telemetry.requestImage,
-				grounding_model_to_original_scale: telemetry.modelToOriginalScale,
-				grounding_working_to_original_scale: telemetry.workingToOriginalScale,
-				grounding_image_box: coordinateSpace === "image_pixels"
-					? result.grounded.box
-					: undefined,
-				grounding_image_point: result.imagePoint,
-				confidence: result.grounded.confidence,
+			grounding_request_image: telemetry.requestImage,
+			grounding_model_to_original_scale: telemetry.modelToOriginalScale,
+			grounding_working_to_original_scale: telemetry.workingToOriginalScale,
+			grounding_image_box: coordinateSpace === "image_pixels"
+				? result.grounded.box
+				: undefined,
+			grounding_image_point: result.imagePoint,
+			confidence: result.grounded.confidence,
 			raw_grounding: result.grounded.raw,
 		};
 	}
@@ -1563,21 +1563,21 @@ export class ComputerUseGuiRuntime {
 		if (!normalizedTarget) {
 			return undefined;
 		}
-			return await this.groundTarget({
-				artifact: params.artifact,
-				target: normalizedTarget,
-				scope: params.scope,
-				app: params.app,
-				action: params.action,
-				groundingMode: params.groundingMode,
-				locationHint: params.locationHint,
-				relatedTarget: params.relatedTarget,
-				relatedScope: params.relatedScope,
-				relatedAction: params.relatedAction,
-				relatedLocationHint: params.relatedLocationHint,
-				relatedPoint: params.relatedPoint,
-				relatedBox: params.relatedBox,
-			});
+		return await this.groundTarget({
+			artifact: params.artifact,
+			target: normalizedTarget,
+			scope: params.scope,
+			app: params.app,
+			action: params.action,
+			groundingMode: params.groundingMode,
+			locationHint: params.locationHint,
+			relatedTarget: params.relatedTarget,
+			relatedScope: params.relatedScope,
+			relatedAction: params.relatedAction,
+			relatedLocationHint: params.relatedLocationHint,
+			relatedPoint: params.relatedPoint,
+			relatedBox: params.relatedBox,
+		});
 	}
 
 	private targetResolutionDetails(result: GroundedGuiTarget | undefined): Record<string, unknown> {
@@ -1663,33 +1663,33 @@ export class ComputerUseGuiRuntime {
 					"single",
 				grounding_previous_failures: 0,
 			},
-			};
-			const coordinateSpace: GuiGroundingCoordinateSpace = grounded.coordinateSpace;
-			if (coordinateSpace !== "image_pixels" && coordinateSpace !== "display_pixels") {
-				this.lastGroundingResolutionError =
-					`Grounding provider returned unsupported coordinate space "${String(coordinateSpace)}".`;
-				return undefined;
-			}
-			const imagePoint = coordinateSpace === "image_pixels"
-				? groundedWithMetadata.point
-				: undefined;
-			const point = coordinateSpace === "image_pixels"
-				? transformImagePointToDisplay(groundedWithMetadata.point, params.artifact.metadata)
-				: normalizeDisplayPointInCapture(groundedWithMetadata.point, params.artifact.metadata);
-			if (!point) {
-				this.lastGroundingResolutionError = this.describeGroundingResolutionError({
-					target: params.target,
-					point: groundedWithMetadata.point,
-					coordinateSpace,
-					artifact: params.artifact.metadata,
-				});
-				return undefined;
-			}
-			const displayBox = groundedWithMetadata.box
-				? coordinateSpace === "image_pixels"
-					? transformImageRectToDisplay(groundedWithMetadata.box, params.artifact.metadata)
-					: normalizeDisplayRectInCapture(groundedWithMetadata.box, params.artifact.metadata)
-				: undefined;
+		};
+		const coordinateSpace: GuiGroundingCoordinateSpace = grounded.coordinateSpace;
+		if (coordinateSpace !== "image_pixels" && coordinateSpace !== "display_pixels") {
+			this.lastGroundingResolutionError =
+				`Grounding provider returned unsupported coordinate space "${String(coordinateSpace)}".`;
+			return undefined;
+		}
+		const imagePoint = coordinateSpace === "image_pixels"
+			? groundedWithMetadata.point
+			: undefined;
+		const point = coordinateSpace === "image_pixels"
+			? transformImagePointToDisplay(groundedWithMetadata.point, params.artifact.metadata)
+			: normalizeDisplayPointInCapture(groundedWithMetadata.point, params.artifact.metadata);
+		if (!point) {
+			this.lastGroundingResolutionError = this.describeGroundingResolutionError({
+				target: params.target,
+				point: groundedWithMetadata.point,
+				coordinateSpace,
+				artifact: params.artifact.metadata,
+			});
+			return undefined;
+		}
+		const displayBox = groundedWithMetadata.box
+			? coordinateSpace === "image_pixels"
+				? transformImageRectToDisplay(groundedWithMetadata.box, params.artifact.metadata)
+				: normalizeDisplayRectInCapture(groundedWithMetadata.box, params.artifact.metadata)
+			: undefined;
 		const resolved = {
 			resolution: createGroundingResolution(groundedWithMetadata),
 			point,
@@ -1941,7 +1941,7 @@ export class ComputerUseGuiRuntime {
 				});
 			}
 
-			const grounded = await this.groundTarget({
+			const grounded = await this.resolveGuiTarget({
 				artifact,
 				target: params.target,
 				groundingMode: params.groundingMode,

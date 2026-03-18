@@ -248,6 +248,20 @@ npm install -g @understudy-ai/understudy
 understudy wizard    # walks you through setup
 ```
 
+### Install from GitHub Packages
+
+```bash
+cat >> ~/.npmrc <<'EOF'
+@understudy-ai:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=YOUR_GITHUB_TOKEN
+EOF
+
+npm install -g @understudy-ai/understudy
+understudy wizard    # walks you through setup
+```
+
+Use a GitHub token with `read:packages` access when installing from GitHub Packages. The bundled `researcher` skill is enabled by default for source-backed multi-source research and fact-checking.
+
 ### Install from source
 
 ```bash
