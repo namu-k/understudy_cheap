@@ -2,12 +2,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const wsMocks = vi.hoisted(() => {
 	const webSocketCtor = vi.fn();
+	let nextReadyState = 1;
+	const sockets: MockWebSocket[] = [];
 
 	class MockWebSocket {
+		static readonly CONNECTING = 0;
 		static readonly OPEN = 1;
-		readonly readyState = MockWebSocket.OPEN;
+		static readonly CLOSING = 2;
+		static readonly CLOSED = 3;
+		readonly close = vi.fn(() => {
+			this.readyState = MockWebSocket.CLOSED;
+			for (const handler of this.closeHandlers) {
+				handler();
+			}
+			this.closeHandlers = [];
+		});
+		readyState = MockWebSocket.OPEN;
+		private closeHandlers: Array<() => void> = [];
 
 		constructor(public readonly url: string) {
+			this.readyState = nextReadyState;
+			nextReadyState = MockWebSocket.OPEN;
+			sockets.push(this);
 			webSocketCtor(url);
 		}
 
@@ -15,20 +31,28 @@ const wsMocks = vi.hoisted(() => {
 			return this;
 		}
 
-		once(_event: string, _handler: (...args: unknown[]) => void): this {
+		once(event: string, handler: (...args: unknown[]) => void): this {
+			if (event === "close") {
+				this.closeHandlers.push(() => {
+					handler();
+				});
+			}
 			return this;
 		}
 
 		removeAllListeners(): this {
+			this.closeHandlers = [];
 			return this;
 		}
-
-		close(): void {}
 	}
 
 	return {
 		webSocketCtor,
 		MockWebSocket,
+		sockets,
+		setNextReadyState(value: number) {
+			nextReadyState = value;
+		},
 	};
 });
 
@@ -110,6 +134,8 @@ describe("createGatewayBackedInteractiveSession", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		delete process.env.UNDERSTUDY_GATEWAY_TOKEN;
+		wsMocks.sockets.length = 0;
+		wsMocks.setNextReadyState(wsMocks.MockWebSocket.OPEN);
 	});
 
 	it("waits for the gateway session id before opening the event stream", async () => {
@@ -238,5 +264,23 @@ describe("createGatewayBackedInteractiveSession", () => {
 
 		expect(SessionManager.listAll).toBe(originalListAll);
 		await expect(SessionManager.listAll()).resolves.toEqual([]);
+	});
+
+	it("closes the gateway websocket even while it is still connecting", async () => {
+		const client = createClient({ sessionId: "gateway-session-1" });
+		wsMocks.setNextReadyState(wsMocks.MockWebSocket.CONNECTING);
+
+		const session = await createGatewayBackedInteractiveSession({
+			baseSession: createBaseSession(),
+			client: client as any,
+			gatewayUrl: "https://gateway.example.com",
+			cwd: "/tmp/workspace",
+			forceNew: true,
+		});
+
+		const socket = wsMocks.sockets.at(-1);
+		await session.close();
+
+		expect(socket?.close).toHaveBeenCalledTimes(1);
 	});
 });

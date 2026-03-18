@@ -928,7 +928,7 @@ export async function createGatewayBackedInteractiveSession(
 		gatewayState.isStreaming = false;
 		gatewayState.currentTurn = undefined;
 		gatewayState.socket?.removeAllListeners();
-		if (gatewayState.socket && gatewayState.socket.readyState === WebSocket.OPEN) {
+		if (gatewayState.socket && gatewayState.socket.readyState !== WebSocket.CLOSED) {
 			await new Promise<void>((resolve) => {
 				const socket = gatewayState.socket!;
 				let settled = false;
@@ -940,7 +940,9 @@ export async function createGatewayBackedInteractiveSession(
 					resolve();
 				};
 				socket.once("close", finish);
-				socket.close();
+				if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) {
+					socket.close();
+				}
 				setTimeout(finish, 100);
 			});
 		}
