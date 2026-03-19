@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., 0.1.6 or 0.1.6-pre.1)"
+        required: true
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate branch is main
+        run: |
+          CURRENT_BRANCH="${GITHUB_REF_NAME}"
+          if [ "${CURRENT_BRANCH}" != "main" ]; then
+            echo "Release must be run from main branch, got: ${CURRENT_BRANCH}"
+            exit 1
+          fi
+
+      - name: Validate version format
+        run: |
+          VERSION="${{ inputs.version }}"
+          if ! echo "${VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "Invalid version format: ${VERSION}"
+            echo "Expected: digits.digits.digits or digits.digits.digits-pre-suffix"
+            exit 1
+          fi
+
+      - name: Update version in package.json
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${{ inputs.version }}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Commit version bump
+        run: git commit -am "release: v${{ inputs.version }}"
+
+      - name: Create tag
+        run: git tag "v${{ inputs.version }}"
+
+      - name: Push commit to main
+        run: git push origin main
+
+      - name: Push tag
+        run: git push origin "v${{ inputs.version }}"

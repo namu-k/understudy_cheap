@@ -144,7 +144,7 @@ describe("primeGuiGroundingForConfig", () => {
 		expect(resolved.groundingProvider).toBeUndefined();
 	});
 
-	it("remains unavailable when the model lacks image input", async () => {
+	it("remains unavailable when the model explicitly lacks image input", async () => {
 		const authManager = {
 			findModel: vi.fn().mockReturnValue({ provider: "openai-codex", id: "gpt-5.4", input: ["text"] }),
 			getAvailableModels: vi.fn().mockReturnValue([{ provider: "openai-codex", id: "gpt-5.4", input: ["text"] }]),
@@ -164,6 +164,52 @@ describe("primeGuiGroundingForConfig", () => {
 
 		expect(resolved.available).toBe(false);
 		expect(resolved.unavailableReason).toContain("image input");
+	});
+
+	it("treats models without an input field as potentially multimodal", async () => {
+		const authManager = {
+			findModel: vi.fn().mockReturnValue({ provider: "openai-codex", id: "gpt-5.4" }),
+			getAvailableModels: vi.fn().mockReturnValue([{ provider: "openai-codex", id: "gpt-5.4" }]),
+			getApiKey: vi.fn().mockResolvedValue("main-model-key"),
+			authStorage: {},
+			modelRegistry: {},
+		};
+
+		const resolved = await primeGuiGroundingForConfig(
+			createConfig({
+				defaultProvider: "openai-codex",
+				defaultModel: "gpt-5.4",
+			}),
+			authManager as any,
+			(() => ({ available: true, provider: "openai-codex", credentialType: "api_key", source: "env" })) as any,
+		);
+
+		expect(resolved.available).toBe(true);
+		expect(resolved.label).toBe("main:openai-codex/gpt-5.4");
+		expect(typeof resolved.groundingProvider?.ground).toBe("function");
+	});
+
+	it("resolves grounding without requiring an API key when runtime auth is available", async () => {
+		const authManager = {
+			findModel: vi.fn().mockReturnValue({ provider: "openai-codex", id: "gpt-5.4", input: ["text", "image"] }),
+			getAvailableModels: vi.fn().mockReturnValue([{ provider: "openai-codex", id: "gpt-5.4", input: ["text", "image"] }]),
+			getApiKey: vi.fn().mockRejectedValue(new Error("no API key")),
+			authStorage: {},
+			modelRegistry: {},
+		};
+
+		const resolved = await primeGuiGroundingForConfig(
+			createConfig({
+				defaultProvider: "openai-codex",
+				defaultModel: "gpt-5.4",
+			}),
+			authManager as any,
+			(() => ({ available: true, provider: "openai-codex", credentialType: "oauth", source: "env" })) as any,
+		);
+
+		expect(resolved.available).toBe(true);
+		expect(resolved.label).toBe("main:openai-codex/gpt-5.4");
+		expect(typeof resolved.groundingProvider?.ground).toBe("function");
 	});
 
 	it("prefers the explicit runtime model when selecting the grounding provider", async () => {
@@ -195,7 +241,6 @@ describe("primeGuiGroundingForConfig", () => {
 
 		expect(resolved.available).toBe(true);
 		expect(resolved.label).toBe("main:openai-codex/gpt-5.4");
-		expect(authManager.getApiKey).toHaveBeenCalledWith(explicitModel);
 	});
 
 	it("can reuse a fallback candidate from the resolved runtime model chain", async () => {

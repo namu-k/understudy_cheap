@@ -35,10 +35,9 @@ const RUNTIME_GROUNDING_SYSTEM_PROMPT = [
 	"Return strict JSON only and never include markdown fences, commentary, or tool calls.",
 ].join("\n");
 
-type ResolvedProviderCredential = {
+type ResolvedProviderModel = {
 	provider: string;
 	modelId: string;
-	apiKey: string;
 	model: Model<any>;
 };
 
@@ -70,51 +69,26 @@ function resolveGuiGroundingThinkingLevel(config: UnderstudyConfig): RuntimeThin
 	return config.agent.guiGroundingThinkingLevel ?? "medium";
 }
 
-async function resolveProviderApiKey(params: {
+function resolveProviderModel(params: {
 	authManager: AuthManager;
 	provider: string;
 	modelId: string;
-}): Promise<ResolvedProviderCredential | undefined> {
+}): ResolvedProviderModel | undefined {
 	const models = params.authManager.getAvailableModels();
 	for (const alias of providerAliases(params.provider)) {
 		const exact =
 			params.authManager.findModel(alias, params.modelId) ??
 			models.find((model) => model.provider === alias && model.id === params.modelId) ??
 			models.find((model) => model.provider === alias);
-		if (!exact) {
-			continue;
-		}
-		const apiKey = await params.authManager.getApiKey(exact).catch(() => undefined);
-		if (typeof apiKey === "string" && apiKey.trim().length > 0) {
+		if (exact) {
 			return {
 				provider: exact.provider,
 				modelId: exact.id,
-				apiKey: apiKey.trim(),
 				model: exact,
 			};
 		}
 	}
 	return undefined;
-}
-
-async function resolvePreferredProviderCredential(params: {
-	authManager: AuthManager;
-	candidate: RuntimeResolvedModelCandidate;
-}): Promise<ResolvedProviderCredential | undefined> {
-	const directApiKey = await params.authManager.getApiKey(params.candidate.model).catch(() => undefined);
-	if (typeof directApiKey === "string" && directApiKey.trim().length > 0) {
-		return {
-			provider: params.candidate.provider,
-			modelId: params.candidate.modelId,
-			apiKey: directApiKey.trim(),
-			model: params.candidate.model,
-		};
-	}
-	return await resolveProviderApiKey({
-		authManager: params.authManager,
-		provider: params.candidate.provider,
-		modelId: params.candidate.modelId,
-	});
 }
 
 function buildGuiGroundingCandidates(
@@ -325,7 +299,7 @@ export function createRuntimeGroundingProvider(options: {
 	guideImageImpl?: RuntimeGuideImageImpl;
 	simulationImageImpl?: RuntimeSimulationImageImpl;
 }): GuiGroundingProvider | undefined {
-	if (!Array.isArray(options.model.input) || !options.model.input.includes("image")) {
+	if (Array.isArray(options.model.input) && !options.model.input.includes("image")) {
 		return undefined;
 	}
 	const timeoutMs = Math.max(5_000, Math.floor(options.timeoutMs ?? DEFAULT_RUNTIME_GROUNDING_TIMEOUT_MS));
@@ -443,7 +417,7 @@ export async function resolveMainModelGuiGroundingProvider(
 		if (!providerStatus.available) {
 			return undefined;
 		}
-		const resolved = await resolveProviderApiKey({
+		const resolved = resolveProviderModel({
 			authManager,
 			provider: config.defaultProvider,
 			modelId: config.defaultModel,
@@ -476,17 +450,10 @@ export async function resolveMainModelGuiGroundingProvider(
 		if (!providerStatus.available) {
 			continue;
 		}
-		const resolved = await resolvePreferredProviderCredential({
-			authManager,
-			candidate,
-		});
-		if (!resolved) {
-			continue;
-		}
-		const label = `main:${resolved.provider}/${resolved.modelId}`;
+		const label = `main:${candidate.provider}/${candidate.modelId}`;
 		const runtimeProvider = createRuntimeGroundingProvider({
 			authManager,
-			model: resolved.model,
+			model: candidate.model,
 			providerName: label,
 			thinkingLevel,
 		});
