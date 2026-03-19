@@ -845,6 +845,11 @@ export async function createGatewayBackedInteractiveSession(
 		};
 	};
 
+	let wrapper: InteractiveSessionLike & {
+		close: () => Promise<void>;
+		getGatewaySessionId: () => string | undefined;
+	};
+
 	const flushQueuedPrompts = async () => {
 		if (gatewayState.isStreaming || typeof baseSession.clearQueue !== "function") {
 			return;
@@ -1055,7 +1060,7 @@ export async function createGatewayBackedInteractiveSession(
 		return true;
 	};
 
-	const wrapper = new Proxy(baseSession as Record<string, unknown>, {
+	wrapper = new Proxy(baseSession as Record<string, unknown>, {
 		get(target, prop, receiver) {
 			if (dynamicOverrides.has(prop)) {
 				return dynamicOverrides.get(prop);

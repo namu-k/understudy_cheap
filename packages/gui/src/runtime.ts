@@ -38,7 +38,7 @@ const DEFAULT_WAIT_INTERVAL_MS = 350;
 const DEFAULT_DRAG_DURATION_MS = 450;
 const DEFAULT_DRAG_STEPS = 24;
 const DEFAULT_HOVER_SETTLE_MS = 200;
-const DEFAULT_POST_ACTION_CAPTURE_SETTLE_MS = 3_000;
+const DEFAULT_POST_ACTION_CAPTURE_SETTLE_MS = 1_500;
 const DEFAULT_CLICK_AND_HOLD_MS = 650;
 const DEFAULT_TYPE_FOCUS_SETTLE_MS = 180;
 const DEFAULT_SCROLL_AMOUNT = 5;
@@ -883,18 +883,7 @@ end focusRequestedWindow
 const TYPE_SCRIPT = String.raw`
 ${WINDOW_SELECTION_SCRIPT_HELPERS}
 
-set requestedApp to system attribute "UNDERSTUDY_GUI_APP"
-set requestedWindowTitle to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE"
-set requestedWindowTitleContains to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS"
-	set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
-	set requestedWindowBoundsX to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_X"
-	set requestedWindowBoundsY to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_Y"
-	set requestedWindowBoundsWidth to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_WIDTH"
-	set requestedWindowBoundsHeight to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_HEIGHT"
-	set replaceText to system attribute "UNDERSTUDY_GUI_REPLACE"
-	set submitText to system attribute "UNDERSTUDY_GUI_SUBMIT"
-
-	on pasteText(rawText)
+on pasteText(rawText)
 	set previousClipboard to missing value
 	set hadClipboard to false
 	try
@@ -918,20 +907,30 @@ end pasteText
 
 on run argv
 	set inputText to item 1 of argv
+	set requestedApp to system attribute "UNDERSTUDY_GUI_APP"
+	set requestedWindowTitle to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE"
+	set requestedWindowTitleContains to system attribute "UNDERSTUDY_GUI_WINDOW_TITLE_CONTAINS"
+	set requestedWindowIndex to system attribute "UNDERSTUDY_GUI_WINDOW_INDEX"
+	set requestedWindowBoundsX to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_X"
+	set requestedWindowBoundsY to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_Y"
+	set requestedWindowBoundsWidth to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_WIDTH"
+	set requestedWindowBoundsHeight to system attribute "UNDERSTUDY_GUI_WINDOW_BOUNDS_HEIGHT"
+	set replaceText to system attribute "UNDERSTUDY_GUI_REPLACE"
+	set submitText to system attribute "UNDERSTUDY_GUI_SUBMIT"
 	tell application "System Events"
 		if requestedApp is not "" then
 			if not (exists application process requestedApp) then error "Application process not found: " & requestedApp
-		set targetProc to application process requestedApp
-		set frontmost of targetProc to true
-		delay 0.1
-	else
-		set targetProc to first application process whose frontmost is true
-	end if
-	my focusRequestedWindow(targetProc, requestedWindowTitle, requestedWindowTitleContains, requestedWindowIndex, requestedWindowBoundsX, requestedWindowBoundsY, requestedWindowBoundsWidth, requestedWindowBoundsHeight)
+			set targetProc to application process requestedApp
+			set frontmost of targetProc to true
+			delay 0.1
+		else
+			set targetProc to first application process whose frontmost is true
+		end if
+		my focusRequestedWindow(targetProc, requestedWindowTitle, requestedWindowTitleContains, requestedWindowIndex, requestedWindowBoundsX, requestedWindowBoundsY, requestedWindowBoundsWidth, requestedWindowBoundsHeight)
 
-	if replaceText is "1" then
-		keystroke "a" using command down
-	end if
+		if replaceText is "1" then
+			keystroke "a" using command down
+		end if
 		my pasteText(inputText)
 		if submitText is "1" then key code 36
 		return "paste"
@@ -2368,6 +2367,7 @@ export class ComputerUseGuiRuntime {
 				appName,
 				captureMode: params.captureMode,
 				windowSelector: windowSelection,
+				settleMs: 500,
 			});
 			return buildGuiResult({
 				text: grounded
@@ -2405,6 +2405,7 @@ export class ComputerUseGuiRuntime {
 			appName,
 			captureMode: params.captureMode,
 			windowSelector: windowSelection,
+			settleMs: 500,
 		});
 		return buildGuiResult({
 			text: repeat === 1

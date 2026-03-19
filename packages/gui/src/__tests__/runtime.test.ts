@@ -830,7 +830,7 @@ describe("ComputerUseGuiRuntime", () => {
 		}
 	});
 
-	it("defaults to a 3s settle delay before capturing post-action evidence", async () => {
+	it("defaults to a 1.5s settle delay before capturing post-action evidence", async () => {
 		vi.useFakeTimers();
 		let clickPromise: Promise<Awaited<ReturnType<ComputerUseGuiRuntime["click"]>>> | undefined;
 		try {
@@ -854,7 +854,7 @@ describe("ComputerUseGuiRuntime", () => {
 			expect(settled).toBe(false);
 			expect(mocks.execCalls.filter((call) => call.file === "screencapture")).toHaveLength(1);
 
-			await vi.advanceTimersByTimeAsync(2_999);
+			await vi.advanceTimersByTimeAsync(1_499);
 			expect(settled).toBe(false);
 			expect(mocks.execCalls.filter((call) => call.file === "screencapture")).toHaveLength(1);
 
@@ -864,7 +864,7 @@ describe("ComputerUseGuiRuntime", () => {
 			expect(settled).toBe(true);
 			expect(mocks.execCalls.filter((call) => call.file === "screencapture")).toHaveLength(2);
 			expect(result.details).toMatchObject({
-				post_action_capture_settle_ms: 3_000,
+				post_action_capture_settle_ms: 1_500,
 			});
 		} finally {
 			if (clickPromise) {
