@@ -20,7 +20,19 @@
 
 AI 工具正在改变我们使用软件的方式 —— 但目前它们只覆盖了工作的一小部分。我们的日常散落在浏览器、桌面应用、终端、聊天工具之间，每个都有自己的界面和操作习惯，彼此割裂。
 
-**Understudy 是一个可教学的桌面 Agent。** 它像一个人类同事一样操作你的电脑 —— GUI、浏览器、Shell、文件系统，全在一个本地运行时里。你演示一次，它提取意图（不是坐标），记住成功路径，随时间发现更快的执行方式，最终自主处理日常工作。不需要 API 集成，不需要搭工作流，演示一次就行。
+**Understudy 是一个开源桌面 Agent。** 它像人类同事一样操作你的电脑 —— 浏览网页、操控应用、执行命令、管理文件、跨平台消息通信，全在一个本地运行时里。类似 Cowork 但开源且本地运行，类似 OpenClaw 但有 Computer Use 和演示教学能力。你演示一次，它提取意图（不是坐标），记住成功路径，随时间发现更快的执行方式。不需要订阅 —— 自带 API Key 即可使用。
+
+### 为什么选 Understudy？
+
+| 能力 | Cowork | OpenClaw | Claude Code | Understudy |
+|---|---|---|---|---|
+| GUI / Computer Use | 是 (macOS) | 有限 | 否 | **是 (macOS, Windows 计划中)** |
+| 演示教学 | 否 | 否 | 否 | **是** |
+| 自我改进 (5 层) | 否 | 否 | 否 | **是** |
+| 多渠道 Dispatch | 仅 Slack | 6 渠道 | 否 | **8 渠道** |
+| 本地优先 / 隐私 | 云端 | 本地 | 云端 | **本地** |
+| 开源 | 否 | 是 | 部分 | **是** |
+| 定价 | 订阅制 | API | 订阅制 | **API (自带 Key)** |
 
 ## 五层递进
 
@@ -56,13 +68,41 @@ Layer 5 ┃ 主动观察，互不影响  在独立工作空间主动发现和执
 
 ## Showcase
 
-> **演示环境：** macOS + GPT-5.4 via Codex。所有支持的提供方见[支持的模型](#支持的模型)。
+> **演示环境：** macOS + Claude Sonnet 4.6 (Anthropic)。所有演示也支持 GPT-5.4 via Codex。所有支持的提供方见[支持的模型](#支持的模型)。
 
-[![Understudy Showcase](https://img.youtube.com/vi/3d5cRGnlb_0/maxresdefault.jpg)](https://www.youtube.com/watch?v=3d5cRGnlb_0)
+### 通用 Agent：一句话搞定
 
-> *视频经过加速处理。完整原速视频：[Google Drive](https://drive.google.com/file/d/1VJfodHJD_RSnb8g_vj2bId48tu_1vwHK/view?usp=sharing)。在线播放请访问[展示页](https://understudy-ai.github.io/understudy/zh-CN/index.html#showcase)。*
+<!-- TODO: 嵌入演示视频 -->
 
-> *这次 Showcase demo 生成出来的已发布 skill 产物放在 [examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md)，可以直接查看最终产物。*
+创建带图表的演示文稿、总结研究、生成代码 —— 完整的 Agent 能力，一条指令触发。无需分阶段操作，说出需求即可。
+
+> *示例提示：「创建一份对比前三大 AI 编程 Agent 的幻灯片，包含功能对比表格和架构图。」*
+
+### 远程 Dispatch：手机控制桌面 Agent
+
+<!-- TODO: 嵌入演示视频 -->
+
+从 Telegram、Discord、Slack 或 8 个渠道中的任一个发送消息。Understudy 在你的桌面上接收、执行多步骤任务 —— 浏览器搜索、GUI 自动化、文件创建，并将结果回复。即使你不在电脑前。
+
+与 [Claude Dispatch](https://www.anthropic.com/news/cowork) 不同，后者需要 Claude iOS 应用，Understudy 使用你已有的消息应用：Telegram、Discord、Slack、WhatsApp、Signal、LINE、iMessage 和 Web。
+
+### 演示教学：演示一次，永久自动化
+
+<!-- TODO: 嵌入全新英文演示视频 -->
+
+通过演示教会一个任务。Understudy 学习**意图**，不是坐标 —— 所以技能在 UI 改版、窗口大小变化、甚至切换到类似应用时仍然有效。
+
+> *演示流程：搜索照片 → 在 Pixelmator Pro 中打开 → 去除背景 → 通过 Telegram 发送。教一次，自主重放。*
+
+> *此演示生成的已发布 skill 产物：[examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md)。*
+
+### Computer Use：自主 iPhone App 评测
+
+<!-- TODO: 嵌入演示视频 -->
+
+一条自然语言指令触发完整 6 阶段流水线：Chrome 选 App → iPhone Mirroring 搜索安装 → 3 轮深度体验（13+ 截图、视频片段）→ 带神经网络配音的评测视频 → YouTube 发布 → 设备清理。42 分钟，54 个产物，零人工干预。
+
+> *示例提示：「在 App Store 找一个有趣的图片编辑应用，安装到我的 iPhone 上，深度体验，然后做一个 YouTube 评测视频。」*
 
 ## 现在能做什么
 
