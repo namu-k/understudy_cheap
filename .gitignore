@@ -24,12 +24,11 @@ outputs/
 **/.tmp-smoke-dist/
 
 # Agent / dev artifacts
-AGENTS.md
-.agent/
-.agents/
-.understudy/
-verify_branch.js
-understudy_suite_note.txt
+	AGENTS.md
+	.agent/
+	.agents/
+	verify_branch.js
+	understudy_suite_note.txt
 
 # IDE
 .vscode/
@@ -38,8 +37,6 @@ understudy_suite_note.txt
 *.swo
 
 # SQLite / local data
-*.sqlite
-*.sqlite3
-*.db
-*.pyc
-__pycache__/
+	*.sqlite
+	*.sqlite3
+	*.db
