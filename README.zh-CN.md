@@ -96,13 +96,12 @@ Layer 5 ┃ 主动观察，互不影响  在独立工作空间主动发现和执
 
 > *此演示生成的已发布 skill 产物：[examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md)。*
 
-### Computer Use：自主 iPhone App 评测
+### 示例工作区
 
-<!-- TODO: 嵌入演示视频 -->
-
-一条自然语言指令触发完整 6 阶段流水线：Chrome 选 App → iPhone Mirroring 搜索安装 → 3 轮深度体验（13+ 截图、视频片段）→ 带神经网络配音的评测视频 → YouTube 发布 → 设备清理。42 分钟，54 个产物，零人工干预。
-
-> *示例提示：「在 App Store 找一个有趣的图片编辑应用，安装到我的 iPhone 上，深度体验，然后做一个 YouTube 评测视频。」*
+- [examples/demo-general-agent](./examples/demo-general-agent/README.md) — 一句话触发的通用 Agent 流程
+- [examples/demo-remote-dispatch](./examples/demo-remote-dispatch/README.md) — 从消息渠道远程调度执行
+- [examples/demo-teach](./examples/demo-teach/README.md) — 演示教学的完整 walkthrough
+- [examples/handwritten-playbook-demo](./examples/handwritten-playbook-demo/README.md) — 通用 playbook + worker + skills 组合与 E2E 运行示例
 
 ## 现在能做什么
 

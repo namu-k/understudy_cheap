@@ -57,7 +57,7 @@ async function hydrateSecretEnvVar(secretEnvVar, explicitEnvFile) {
 	}
 }
 
-const app = readFlag("app", "iPhone Mirroring");
+const app = readFlag("app", "");
 const literalValue = readFlag("value", "");
 const secretEnvVar = readFlag("secret-env-var", "UNDERSTUDY_APPLE_ID_PASSWORD");
 const envFile = readFlag("env-file", "");

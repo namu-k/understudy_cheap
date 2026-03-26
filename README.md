@@ -96,13 +96,12 @@ Teach a task by demonstrating it once. Understudy learns the **intent**, not the
 
 > *The published skill artifact from this demo is available at [examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md](./examples/published-skills/taught-person-photo-cutout-bc88ec/SKILL.md).*
 
-### Computer Use — Autonomous iPhone App Review
+### Example Workspaces
 
-<!-- TODO: embed demo video -->
-
-One natural language message triggers a 6-stage pipeline: Chrome app selection → iPhone Mirroring search + install → deep 3-round exploration (13+ screenshots, video clips) → narrated review video with neural voiceover → YouTube publish → device cleanup. 42 minutes, 54 artifacts, zero human intervention.
-
-> *Example prompt: "Find an interesting photo editing app on the App Store, install it on my iPhone, explore it thoroughly, and create a review video for YouTube."*
+- [examples/demo-general-agent](./examples/demo-general-agent/README.md) — one-message general agent flow
+- [examples/demo-remote-dispatch](./examples/demo-remote-dispatch/README.md) — remote execution from messaging channels
+- [examples/demo-teach](./examples/demo-teach/README.md) — teach-by-demonstration walkthrough
+- [examples/handwritten-playbook-demo](./examples/handwritten-playbook-demo/README.md) — generic playbook + worker + skills bundle with E2E harness
 
 ## What It Can Do Today
 
