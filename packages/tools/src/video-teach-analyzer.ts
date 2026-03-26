@@ -33,6 +33,7 @@ import {
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 60_000;
+const DEFAULT_SESSION_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_EPISODES = 8;
 const DEFAULT_MAX_KEYFRAMES = 24;
 const HARD_MAX_EPISODES = 18;
@@ -43,6 +44,8 @@ const DEFAULT_FRAME_MAX_WIDTH = 1600;
 const DEFAULT_FRAME_RETRY_OFFSETS_MS = [0, -250, -1000];
 const DEFAULT_SESSION_PROVIDER = "openai-codex";
 const DEFAULT_SESSION_MODEL = "gpt-5.4";
+const DEFAULT_SESSION_MAX_EPISODES = 2;
+const DEFAULT_SESSION_MAX_KEYFRAMES = 6;
 const DEFAULT_MAX_OUTPUT_TOKENS = 2_400;
 const MAX_PROMPT_EVENTS = 24;
 const MAX_PROMPT_EPISODES = 18;
@@ -252,6 +255,7 @@ export interface SessionVideoTeachAnalyzerOptions extends BuildDemonstrationEvid
 	provider?: string;
 	model?: string;
 	providerName?: string;
+	timeoutMs?: number;
 	thinkingLevel?: UnderstudyConfig["defaultThinkingLevel"];
 	evidenceBuilder?: (params: VideoTeachAnalyzerRequest) => Promise<DemonstrationEvidencePack>;
 }
@@ -2260,6 +2264,8 @@ async function requestJsonViaSession(params: {
 	cwd: string;
 	provider: string;
 	model: string;
+	providerName: string;
+	timeoutMs: number;
 	thinkingLevel?: UnderstudyConfig["defaultThinkingLevel"];
 	promptText: string;
 	images?: Array<Record<string, string>>;
@@ -2275,15 +2281,26 @@ async function requestJsonViaSession(params: {
 		const sessionResult = await createUnderstudySession({
 			cwd: params.cwd,
 			config: sessionConfig,
+			allowedToolNames: [],
+			promptMode: "none",
 		});
+		let promptTimeout: ReturnType<typeof setTimeout> | undefined;
 		try {
-			await sessionResult.session.prompt(
-				[
-					params.promptText,
-					attempt === 1 ? undefined : INVALID_JSON_RETRY_INSTRUCTION,
-				].filter(Boolean).join("\n"),
-				params.images?.length ? { images: params.images } : undefined,
-			);
+			await Promise.race([
+				sessionResult.session.prompt(
+					[
+						params.promptText,
+						attempt === 1 ? undefined : INVALID_JSON_RETRY_INSTRUCTION,
+					].filter(Boolean).join("\n"),
+					params.images?.length ? { images: params.images } : undefined,
+				),
+				new Promise<never>((_, reject) => {
+					promptTimeout = setTimeout(() => {
+						void Promise.resolve(sessionResult.runtimeSession.close()).catch(() => {});
+						reject(new Error(`${params.providerName} video teach analysis timed out after ${params.timeoutMs}ms.`));
+					}, params.timeoutMs);
+				}),
+			]);
 			const jsonText = extractLatestAssistantText(sessionResult.session.agent.state.messages) ?? "";
 			try {
 				return extractJsonObject(jsonText, "Video teach response");
@@ -2294,6 +2311,9 @@ async function requestJsonViaSession(params: {
 				}
 			}
 		} finally {
+			if (promptTimeout) {
+				clearTimeout(promptTimeout);
+			}
 			await sessionResult.runtimeSession.close();
 		}
 	}
@@ -2401,7 +2421,12 @@ export function createResponsesApiVideoTeachAnalyzer(
 export function createSessionVideoTeachAnalyzer(
 	options: SessionVideoTeachAnalyzerOptions = {},
 ): VideoTeachAnalyzer {
-	const evidenceBuilder = options.evidenceBuilder ?? ((params: VideoTeachAnalyzerRequest) => buildDemonstrationEvidencePack(params, options));
+	const evidenceBuilder = options.evidenceBuilder ?? ((params: VideoTeachAnalyzerRequest) => buildDemonstrationEvidencePack({
+		...params,
+		maxEpisodes: params.maxEpisodes ?? DEFAULT_SESSION_MAX_EPISODES,
+		maxKeyframes: params.maxKeyframes ?? DEFAULT_SESSION_MAX_KEYFRAMES,
+	}, options));
+	const timeoutMs = Math.max(1_000, Math.floor(options.timeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS));
 
 	return {
 		async analyze(params: VideoTeachAnalyzerRequest): Promise<VideoTeachAnalysis> {
@@ -2447,6 +2472,8 @@ export function createSessionVideoTeachAnalyzer(
 					cwd,
 					provider,
 					model,
+					providerName,
+					timeoutMs,
 					thinkingLevel: options.thinkingLevel,
 					promptText,
 					images,
@@ -2466,6 +2493,8 @@ export function createSessionVideoTeachAnalyzer(
 							cwd,
 							provider,
 							model,
+							providerName,
+							timeoutMs,
 							thinkingLevel: options.thinkingLevel,
 							promptText: buildCapabilitySelectionPrompt({
 								analysis,

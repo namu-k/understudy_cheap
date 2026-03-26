@@ -913,6 +913,8 @@ copyFileSync(fixturePath, outputPath);
 				defaultModel: "gpt-5.4",
 				defaultThinkingLevel: "off",
 			}),
+			allowedToolNames: [],
+			promptMode: "none",
 		}));
 		expect(prompt).toHaveBeenCalledTimes(1);
 		expect(close).toHaveBeenCalledTimes(1);
@@ -923,5 +925,73 @@ copyFileSync(fixturePath, outputPath);
 			model: "gpt-5.4",
 			sourceLabel: "demo.mp4",
 		});
+	});
+
+	it("times out hung session-backed video teach analysis requests", async () => {
+		const dir = await createTempDir("understudy-video-teach-session-timeout-");
+		const frameA = join(dir, "frame-a.png");
+		await writeFile(frameA, Buffer.from(TINY_PNG, "base64"));
+
+		const prompt = vi.fn(async () => {
+			await new Promise(() => {});
+		});
+		const session = {
+			agent: {
+				state: {
+					messages: [] as Array<Record<string, unknown>>,
+				},
+			},
+			prompt,
+		};
+		const close = vi.fn(async () => {});
+		coreMocks.createUnderstudySession.mockResolvedValue({
+			session,
+			runtimeSession: { close },
+		});
+
+		const analyzer = createSessionVideoTeachAnalyzer({
+			config: {
+				defaultProvider: "openai-codex",
+				defaultModel: "gpt-5.4",
+				defaultThinkingLevel: "off",
+			} as any,
+			cwd: "/tmp/understudy",
+			timeoutMs: 1_000,
+			evidenceBuilder: async () => ({
+				videoPath: "/tmp/demo.mp4",
+				sourceLabel: "demo.mp4",
+				durationMs: 12_000,
+				analysisMode: "event_guided_evidence_pack",
+				events: [],
+				episodes: [
+					{
+						id: "episode-01",
+						startMs: 600,
+						endMs: 2_500,
+						centerMs: 1_000,
+						label: "Browser: Publish button",
+						triggerTypes: ["mouse_up"],
+						source: "event",
+						app: "Browser",
+						keyframes: [
+							{ path: frameA, mimeType: "image/png", timestampMs: 800, kind: "before_action", label: "Before click", episodeId: "episode-01" },
+						],
+					},
+				],
+				keyframes: [
+					{ path: frameA, mimeType: "image/png", timestampMs: 800, kind: "before_action", label: "Before click", episodeId: "episode-01" },
+				],
+				summary: "Built event-guided evidence pack, 1 episode, 1 keyframe from demo.mp4.",
+				tempDir: dir,
+			}),
+		});
+
+		await expect(analyzer.analyze({
+			videoPath: "/tmp/demo.mp4",
+			sourceLabel: "demo.mp4",
+		})).rejects.toThrow("video teach analysis timed out");
+
+		expect(prompt).toHaveBeenCalledTimes(1);
+		expect(close).toHaveBeenCalled();
 	});
 });
