@@ -45,5 +45,5 @@ Tested with `anthropic/claude-sonnet-4-6` and `openai-codex/gpt-5.4`.
 
 ## Demo Versions
 
-- **Short (60-90s):** Rapid montage — prompt sent → agent working → final file on Desktop
+- **Short (60-90s):** Rapid montage — prompt sent → agent working → final file in Downloads
 - **Long (5-8min):** Full walkthrough with narration showing tool usage step by step

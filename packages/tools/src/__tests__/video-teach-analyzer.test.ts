@@ -927,6 +927,152 @@ copyFileSync(fixturePath, outputPath);
 		});
 	});
 
+	it("keeps adaptive evidence budgets for session-backed analysis by default", async () => {
+		let observedImageCount = 0;
+		const prompt = vi.fn(async (_text: string, options?: Record<string, unknown>) => {
+			observedImageCount = Array.isArray(options?.images) ? options.images.length : 0;
+			session.agent.state.messages.push({
+				role: "assistant",
+				content: JSON.stringify({
+					title: "Create and deliver the cutout image",
+					objective: "Find the image, remove the background, export it, and send it.",
+					parameterSlots: [],
+					successCriteria: ["The exported image is sent in Telegram."],
+					openQuestions: [],
+					steps: [
+						{
+							route: "gui",
+							toolName: "gui_click",
+							instruction: "Send the exported image in Telegram.",
+							target: "Send button",
+						},
+					],
+				}),
+			});
+		});
+		const session = {
+			agent: {
+				state: {
+					messages: [] as Array<Record<string, unknown>>,
+				},
+			},
+			prompt,
+		};
+		const close = vi.fn(async () => {});
+		coreMocks.createUnderstudySession.mockResolvedValue({
+			session,
+			runtimeSession: { close },
+		});
+
+		const analyzer = createSessionVideoTeachAnalyzer({
+			config: {
+				defaultProvider: "openai-codex",
+				defaultModel: "gpt-5.4",
+				defaultThinkingLevel: "off",
+			} as any,
+			cwd: "/tmp/understudy",
+			durationProbe: async () => 180_000,
+			sceneDetector: async () => [
+				5_000,
+				15_000,
+				25_000,
+				35_000,
+				45_000,
+				55_000,
+				65_000,
+				75_000,
+				85_000,
+				95_000,
+				105_000,
+				115_000,
+			],
+			frameExtractor: async ({ outputPath }) => {
+				await writeFile(outputPath, Buffer.from(TINY_PNG, "base64"));
+			},
+		});
+
+		await analyzer.analyze({
+			videoPath: "/tmp/demo.mp4",
+			sourceLabel: "demo.mp4",
+			events: [
+				{ type: "app_activated", timestampMs: 2_000, app: "Google Chrome", windowTitle: "Google Images" },
+				{ type: "key_down", timestampMs: 10_000, app: "Google Chrome", target: "Google Images search box" },
+				{ type: "mouse_up", timestampMs: 20_000, app: "Google Chrome", target: "Sam Altman image result" },
+				{ type: "app_activated", timestampMs: 40_000, app: "Pixelmator Pro" },
+				{ type: "menu_opened", timestampMs: 50_000, app: "Pixelmator Pro", target: "Remove Background" },
+				{ type: "mouse_up", timestampMs: 65_000, app: "Pixelmator Pro", target: "Export button" },
+				{ type: "app_activated", timestampMs: 80_000, app: "Telegram" },
+				{ type: "mouse_up", timestampMs: 100_000, app: "Telegram", target: "Send button" },
+			],
+		});
+
+		expect(prompt).toHaveBeenCalledTimes(1);
+		expect(observedImageCount).toBeGreaterThan(6);
+		expect(close).toHaveBeenCalledTimes(1);
+	});
+
+	it("filters Understudy teach scaffolding events from the evidence pack", async () => {
+		const pack = await buildDemonstrationEvidencePack({
+			videoPath: "/tmp/demo.mp4",
+			sourceLabel: "demo.mp4",
+			events: [
+				{
+					type: "recording_started",
+					timestampMs: 0,
+					app: "iTerm2",
+					windowTitle: "Understudy - understudy",
+					detail: "Global demonstration event capture started",
+					target: "Type / for commands. Common flows: /teach start, /attach <path>, /quit.",
+				},
+				{
+					type: "window_focused",
+					timestampMs: 1,
+					app: "iTerm2",
+					windowTitle: "Understudy - understudy",
+					detail: "Initial frontmost window at recording start",
+					target: "Started teach recording for this workspace session.",
+				},
+				{ type: "app_activated", timestampMs: 2_000, app: "Google Chrome", windowTitle: "Google Images" },
+				{ type: "mouse_up", timestampMs: 8_000, app: "Google Chrome", target: "Search result" },
+				{ type: "app_activated", timestampMs: 25_000, app: "Pixelmator Pro", windowTitle: "Editor" },
+				{ type: "mouse_up", timestampMs: 42_000, app: "Pixelmator Pro", target: "Remove Background" },
+				{ type: "app_activated", timestampMs: 58_000, app: "Telegram", windowTitle: "Telegram @ sth" },
+				{ type: "mouse_up", timestampMs: 64_000, app: "Telegram", target: "Send button" },
+				{
+					type: "app_activated",
+					timestampMs: 68_000,
+					app: "iTerm2",
+					windowTitle: "Understudy - understudy",
+					target: "/teach stop\nTeach stop received. Stopping the recording and preparing the demo analysis...",
+				},
+				{
+					type: "recording_stopped",
+					timestampMs: 69_000,
+					app: "iTerm2",
+					windowTitle: "Understudy - understudy",
+					detail: "Received SIGINT",
+					target: "/teach stop",
+				},
+			],
+			maxEpisodes: 6,
+			maxKeyframes: 18,
+		}, {
+			durationProbe: async () => 70_000,
+			sceneDetector: async () => [],
+			frameExtractor: async ({ outputPath }) => {
+				await writeFile(outputPath, Buffer.from(TINY_PNG, "base64"));
+			},
+		});
+		if (pack.tempDir) {
+			cleanupDirs.push(pack.tempDir);
+		}
+
+		expect(pack.events.map((event) => event.type)).not.toContain("recording_started");
+		expect(pack.events.map((event) => event.type)).not.toContain("recording_stopped");
+		expect(pack.events.some((event) => event.windowTitle === "Understudy - understudy")).toBe(false);
+		expect(pack.episodes.some((episode) => episode.app === "iTerm2")).toBe(false);
+	});
+
 	it("times out hung session-backed video teach analysis requests", async () => {
 		const dir = await createTempDir("understudy-video-teach-session-timeout-");
 		const frameA = join(dir, "frame-a.png");

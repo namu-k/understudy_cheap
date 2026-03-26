@@ -33,7 +33,6 @@ import {
 const execFileAsync = promisify(execFile);
 
 const DEFAULT_TIMEOUT_MS = 60_000;
-const DEFAULT_SESSION_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_EPISODES = 8;
 const DEFAULT_MAX_KEYFRAMES = 24;
 const HARD_MAX_EPISODES = 18;
@@ -44,8 +43,6 @@ const DEFAULT_FRAME_MAX_WIDTH = 1600;
 const DEFAULT_FRAME_RETRY_OFFSETS_MS = [0, -250, -1000];
 const DEFAULT_SESSION_PROVIDER = "openai-codex";
 const DEFAULT_SESSION_MODEL = "gpt-5.4";
-const DEFAULT_SESSION_MAX_EPISODES = 2;
-const DEFAULT_SESSION_MAX_KEYFRAMES = 6;
 const DEFAULT_MAX_OUTPUT_TOKENS = 2_400;
 const MAX_PROMPT_EVENTS = 24;
 const MAX_PROMPT_EPISODES = 18;
@@ -1041,6 +1038,35 @@ function normalizeEventImportance(value: unknown): DemonstrationEvent["importanc
 	return undefined;
 }
 
+const TEACH_CONTROL_MARKERS = [
+	"/teach start",
+	"/teach stop",
+	"started teach recording",
+	"teach stop received",
+	"global demonstration event capture started",
+	"initial frontmost window at recording start",
+	"stopping the recording and preparing the demo analysis",
+	"common flows: /teach start",
+];
+
+function isTeachControlNoiseEvent(event: DemonstrationEvent): boolean {
+	if (event.type === "recording_started" || event.type === "recording_stopped") {
+		return true;
+	}
+	if (event.type !== "app_activated" && event.type !== "window_focused") {
+		return false;
+	}
+	const haystack = [
+		event.windowTitle,
+		event.detail,
+		event.target,
+	].filter(Boolean).join("\n").toLowerCase();
+	if (!haystack) {
+		return false;
+	}
+	return TEACH_CONTROL_MARKERS.some((marker) => haystack.includes(marker));
+}
+
 function inferEventImportance(type: string): DemonstrationEvent["importance"] {
 	if (
 		type.includes("mouse_down") ||
@@ -1098,6 +1124,9 @@ function normalizeDemonstrationEvents(value: unknown): DemonstrationEvent[] {
 			keyCode: asNumber(record.keyCode) ?? asNumber(record.key_code),
 			modifiers: Array.isArray(record.modifiers) ? normalizeLineList(record.modifiers) : undefined,
 		});
+		if (isTeachControlNoiseEvent(normalized[normalized.length - 1]!)) {
+			normalized.pop();
+		}
 	}
 	return normalized.sort((left, right) => left.timestampMs - right.timestampMs);
 }
@@ -2265,7 +2294,7 @@ async function requestJsonViaSession(params: {
 	provider: string;
 	model: string;
 	providerName: string;
-	timeoutMs: number;
+	timeoutMs?: number;
 	thinkingLevel?: UnderstudyConfig["defaultThinkingLevel"];
 	promptText: string;
 	images?: Array<Record<string, string>>;
@@ -2286,21 +2315,26 @@ async function requestJsonViaSession(params: {
 		});
 		let promptTimeout: ReturnType<typeof setTimeout> | undefined;
 		try {
-			await Promise.race([
-				sessionResult.session.prompt(
-					[
-						params.promptText,
-						attempt === 1 ? undefined : INVALID_JSON_RETRY_INSTRUCTION,
-					].filter(Boolean).join("\n"),
-					params.images?.length ? { images: params.images } : undefined,
-				),
-				new Promise<never>((_, reject) => {
-					promptTimeout = setTimeout(() => {
-						void Promise.resolve(sessionResult.runtimeSession.close()).catch(() => {});
-						reject(new Error(`${params.providerName} video teach analysis timed out after ${params.timeoutMs}ms.`));
-					}, params.timeoutMs);
-				}),
-			]);
+			const promptPromise = sessionResult.session.prompt(
+				[
+					params.promptText,
+					attempt === 1 ? undefined : INVALID_JSON_RETRY_INSTRUCTION,
+				].filter(Boolean).join("\n"),
+				params.images?.length ? { images: params.images } : undefined,
+			);
+			if (params.timeoutMs) {
+				await Promise.race([
+					promptPromise,
+					new Promise<never>((_, reject) => {
+						promptTimeout = setTimeout(() => {
+							void Promise.resolve(sessionResult.runtimeSession.close()).catch(() => {});
+							reject(new Error(`${params.providerName} video teach analysis timed out after ${params.timeoutMs}ms.`));
+						}, params.timeoutMs);
+					}),
+				]);
+			} else {
+				await promptPromise;
+			}
 			const jsonText = extractLatestAssistantText(sessionResult.session.agent.state.messages) ?? "";
 			try {
 				return extractJsonObject(jsonText, "Video teach response");
@@ -2421,12 +2455,11 @@ export function createResponsesApiVideoTeachAnalyzer(
 export function createSessionVideoTeachAnalyzer(
 	options: SessionVideoTeachAnalyzerOptions = {},
 ): VideoTeachAnalyzer {
-	const evidenceBuilder = options.evidenceBuilder ?? ((params: VideoTeachAnalyzerRequest) => buildDemonstrationEvidencePack({
-		...params,
-		maxEpisodes: params.maxEpisodes ?? DEFAULT_SESSION_MAX_EPISODES,
-		maxKeyframes: params.maxKeyframes ?? DEFAULT_SESSION_MAX_KEYFRAMES,
-	}, options));
-	const timeoutMs = Math.max(1_000, Math.floor(options.timeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS));
+	const evidenceBuilder = options.evidenceBuilder ?? ((params: VideoTeachAnalyzerRequest) =>
+		buildDemonstrationEvidencePack(params, options));
+	const timeoutMs = options.timeoutMs !== undefined
+		? Math.max(1_000, Math.floor(options.timeoutMs))
+		: undefined;
 
 	return {
 		async analyze(params: VideoTeachAnalyzerRequest): Promise<VideoTeachAnalysis> {
