@@ -1,6 +1,6 @@
-# Demo: Remote Dispatch — Agent on Desktop, You on Phone
+# Demo: Computer Use + Remote Dispatch — Agent on Desktop, You on Phone
 
-Demonstrates sending tasks from a phone via messaging apps while Understudy executes on your Mac.
+Demonstrates Cowork-style computer use in practice: you send tasks from a phone via messaging apps while Understudy executes browser, GUI, shell, and file work on your Mac.
 
 ## Demo Scenario
 
@@ -9,7 +9,7 @@ Demonstrates sending tasks from a phone via messaging apps while Understudy exec
 **Flow:**
 1. User sends a Telegram message from their phone
 2. Understudy gateway receives it on the Mac
-3. Agent executes: opens browser, searches, creates files, etc.
+3. Agent executes: opens browser, searches, clicks through desktop apps when needed, creates files, etc.
 4. Agent replies with results back to Telegram
 
 **Example prompts:**

@@ -1,6 +1,6 @@
 # Demo: General Agent — One Message, Done
 
-Demonstrates Understudy's ability to handle complex everyday tasks from a single instruction.
+Demonstrates the core product pitch first: Understudy as a general-purpose agent that can handle complex everyday tasks from a single instruction.
 
 ## Demo Scenario
 

@@ -1,6 +1,6 @@
 # Demo: Teach — Show Once, Automate Forever
 
-Demonstrates Understudy's unique learn-from-demonstration capability.
+Demonstrates Understudy's distinctive learn-from-demonstration stack: teach once, publish a reusable artifact, then replay it later. The same machinery also supports daily workflow crystallization and route-aware reuse.
 
 ## Demo Scenario
 
