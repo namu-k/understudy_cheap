@@ -17,7 +17,7 @@ import {
 
 const tempDirs: string[] = [];
 const originalBundledSkillsDir = process.env.UNDERSTUDY_BUNDLED_SKILLS_DIR;
-const handwrittenFixturesDir = path.resolve(process.cwd(), "examples/handwritten-playbook-demo/skills");
+const handwrittenFixturesDir = path.resolve(import.meta.dirname, "fixtures/handwritten-playbook-demo/skills");
 
 async function makeTempDir(prefix: string): Promise<string> {
 	const dir = await fs.mkdtemp(path.join(os.tmpdir(), prefix));
