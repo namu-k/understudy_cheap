@@ -47,7 +47,7 @@ Snapshot as of March 26, 2026. Conservative: sourced from official docs; if a pr
 - **OpenClaw** — [GitHub](https://github.com/openclaw/openclaw) · [browser docs](https://docs.openclaw.ai/tools/browser) · [pricing](https://www.getopenclaw.ai/en/pricing)
 - **Cowork** — [pricing](https://claude.com/pricing) · [computer-use announcement](https://claude.com/blog/dispatch-and-computer-use) · [Cowork webinar](https://www.anthropic.com/webinars/future-of-ai-at-work-introducing-cowork)
 - **Vy** — [Vercept → Anthropic](https://vercept.com/) · [Watch & Repeat launch](https://vercept.com/changelog/0.3.0) · [workflow updates](https://vercept.com/changelog/0.7.8)
-- **Understudy** — this repo (`README`, `docs/`, `examples/`)
+- **Understudy** — this repo (`README`, `docs/`)
 
 </details>
 
@@ -115,15 +115,6 @@ Teach a task by demonstrating it once. Understudy learns the **intent**, not the
 
 > *Demo flow: `/teach start` → search Google Images for Sam Altman → download photo → remove background in Pixelmator Pro → export → send via Telegram to Alex. Then interactively refine the skill. Finally, invoke with natural language: "Find a photo of [person], remove the background, and send it to [contact] on Telegram" — the agent discovers the taught skill and replays it with automatic upgrades.*
 
-> *The published skill artifact from this demo is available at [examples/published-skills/taught-create-a-background-removed-portrait-for-a-requested-person-and-send-it-in-telegram-cd861a/SKILL.md](./examples/published-skills/taught-create-a-background-removed-portrait-for-a-requested-person-and-send-it-in-telegram-cd861a/SKILL.md).*
-
-### Example Workspaces
-
-- [examples/demo-general-agent](./examples/demo-general-agent/README.md) — one-message general agent flow
-- [examples/demo-remote-dispatch](./examples/demo-remote-dispatch/README.md) — remote execution from messaging channels
-- [examples/demo-teach](./examples/demo-teach/README.md) — teach-by-demonstration walkthrough
-- [examples/handwritten-playbook-demo](./examples/handwritten-playbook-demo/README.md) — generic playbook + worker + skills bundle with E2E harness
-
 ## What It Can Do Today
 
 ### Layer 1 — Operate Your Computer Natively
@@ -173,8 +164,6 @@ For implementation details (coordinate spaces, stabilization, capture modes), se
 The published SKILL.md is a three-layer abstraction: intent procedure (natural language steps), route options (preferred / fallback paths), and GUI replay hints (last resort only, re-grounded from the current screenshot each time). UI redesigns, window resizing, even switching to a similar app — as long as the semantic target still exists, the skill works.
 
 The draft/publish pipeline is no longer limited to one artifact shape. The current schema can publish `skill`, `worker`, and `playbook` workspace artifacts, although teach-by-demonstration most commonly produces reusable skills today.
-
-A real published output example is available at [examples/published-skills/taught-create-a-background-removed-portrait-for-a-requested-person-and-send-it-in-telegram-cd861a/SKILL.md](./examples/published-skills/taught-create-a-background-removed-portrait-for-a-requested-person-and-send-it-in-telegram-cd861a/SKILL.md). It is kept under `examples/` on purpose, so the repo documents the artifact format without auto-loading it as a real workspace skill.
 
 For the full teach pipeline, evidence pack construction, and validation details, see [Product Design](./docs/Product_Design.md).
 
@@ -449,7 +438,6 @@ packages/tools     Built-in tools: browser, web, memory, schedule, GUI, message
 packages/channels  Channel adapters (8 platforms)
 packages/types     Shared TypeScript type definitions
 skills/            Built-in skill modules
-examples/          Sample published artifacts and reference outputs
 docs/              Vision, product design documentation
 ```
 
