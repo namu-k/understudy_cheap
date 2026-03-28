@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createOcrEngine, createTesseractOcrEngine } from "../../grounding/ocr-engine.js";
+import { createVisionOcrEngine } from "../../grounding/vision-ocr-helper.js";
 
 describe("createOcrEngine", () => {
 	it("returns an OcrEngine with a recognize method", () => {
@@ -50,5 +51,28 @@ describe("createTesseractOcrEngine", () => {
 		await engine.terminate?.();
 		// Should not throw on double-terminate
 		await engine.terminate?.();
+	});
+});
+
+describe.skipIf(process.platform !== "darwin")("createVisionOcrEngine", () => {
+	it("produces OcrResult shape for any image", async () => {
+		const engine = createVisionOcrEngine({ mode: "fast" });
+		const { createTestImage, cleanupTempDirs } = await import("../grounding-test-helpers.js");
+		try {
+			const imagePath = await createTestImage(200, 100, "ocr-vision-test.png");
+			const results = await engine.recognize(imagePath);
+			expect(Array.isArray(results)).toBe(true);
+			for (const result of results) {
+				expect(result).toHaveProperty("text");
+				expect(result).toHaveProperty("bbox");
+				expect(result).toHaveProperty("confidence");
+				expect(result.bbox).toHaveProperty("x");
+				expect(result.bbox).toHaveProperty("y");
+				expect(result.bbox).toHaveProperty("width");
+				expect(result.bbox).toHaveProperty("height");
+			}
+		} finally {
+			await cleanupTempDirs();
+		}
 	});
 });
