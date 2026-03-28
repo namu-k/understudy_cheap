@@ -10,7 +10,10 @@ import {
 } from "@understudy/gui";
 import { asString, asNumber, asBoolean } from "@understudy/core";
 import { createOpenAIGroundingProvider } from "./openai-grounding-provider.js";
+import { createHybridGroundingProvider, createOcrEngine, GroundingCacheStore } from "./grounding/index.js";
 import { textResult } from "./bridge/bridge-rpc.js";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const GUI_SCOPE_DESCRIPTION =
 	'Optional visible container hint such as a window title, panel name, dialog name, or region. ' +
@@ -344,6 +347,45 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 	if (sharedDefaultGuiRuntime) {
 		return sharedDefaultGuiRuntime;
 	}
+
+	const groundingMode = process.env.UNDERSTUDY_GROUNDING_MODE?.trim();
+
+	if (groundingMode === "hybrid") {
+		const fallbackApiKey = process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY?.trim();
+		const fallbackModel = process.env.UNDERSTUDY_GUI_GROUNDING_MODEL?.trim();
+		const fallbackProvider = fallbackApiKey
+			? createOpenAIGroundingProvider({
+				apiKey: fallbackApiKey,
+				model: fallbackModel,
+				baseUrl: process.env.UNDERSTUDY_GUI_GROUNDING_BASE_URL?.trim(),
+				providerName: process.env.UNDERSTUDY_GUI_GROUNDING_PROVIDER?.trim() || undefined,
+			})
+			: undefined;
+
+		const storageDir = process.env.UNDERSTUDY_GROUNDING_CACHE_DIR?.trim()
+			|| join(homedir(), ".understudy", "grounding-cache");
+
+		const cacheStore = new GroundingCacheStore({ storageDir });
+		const ocrEngine = createOcrEngine({
+			languages: process.env.UNDERSTUDY_GROUNDING_OCR_LANGUAGES?.split(",").map(s => s.trim()) || ["eng", "kor"],
+		});
+
+		const hybridProvider = createHybridGroundingProvider({
+			ocrEngine,
+			cacheStore,
+			fallbackProvider,
+			config: {
+				ocrThreshold: parseFloat(process.env.UNDERSTUDY_GROUNDING_OCR_THRESHOLD ?? "0.7"),
+				fallbackOnFailure: process.env.UNDERSTUDY_GROUNDING_NO_FALLBACK !== "1",
+				autoUpdateCache: process.env.UNDERSTUDY_GROUNDING_NO_AUTO_UPDATE !== "1",
+			},
+		});
+
+		return new ComputerUseGuiRuntime({
+			groundingProvider: hybridProvider,
+		});
+	}
+
 	const autoApiKey = process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY?.trim();
 	const autoModel = process.env.UNDERSTUDY_GUI_GROUNDING_MODEL?.trim();
 	const explicitOpenAI = autoApiKey

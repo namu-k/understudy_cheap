@@ -136,3 +136,6 @@ export { createSubagentsTool } from "./bridge/subagents-tool.js";
 
 // Response extraction
 export { extractJsonObject } from "./response-extract-helpers.js";
+
+// Grounding (hybrid)
+export * from "./grounding/index.js";
