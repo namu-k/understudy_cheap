@@ -25,10 +25,17 @@ outputs/
 
 # Agent / dev artifacts
 docs/superpowers/
+.claude/
 AGENTS.md
 .agent/
 .agents/
 .understudy/
+
+# Tesseract OCR language data (local copies / downloads; tesseract.js uses its own cache)
+*.traineddata
+
+# Windows: stray file named reserved device (e.g. mistaken redirect)
+/nul
 verify_branch.js
 understudy_suite_note.txt
 
