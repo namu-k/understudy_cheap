@@ -375,7 +375,7 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			cacheStore,
 			fallbackProvider,
 			config: {
-				ocrThreshold: parseFloat(process.env.UNDERSTUDY_GROUNDING_OCR_THRESHOLD ?? "0.7"),
+				ocrThreshold: parseFloat(process.env.UNDERSTUDY_GROUNDING_OCR_THRESHOLD ?? "") || 0.7,
 				fallbackOnFailure: process.env.UNDERSTUDY_GROUNDING_NO_FALLBACK !== "1",
 				autoUpdateCache: process.env.UNDERSTUDY_GROUNDING_NO_AUTO_UPDATE !== "1",
 			},
