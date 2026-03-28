@@ -112,7 +112,12 @@ export function fuzzyMatchOcr(results: OcrResult[], targetText: string): OcrMatc
 		}
 	}
 
+	// Skip contains matching for single-character targets/results — too many false positives
+	const MIN_CONTAINS_LENGTH = 2;
 	for (const result of results) {
+		if (targetText.length < MIN_CONTAINS_LENGTH && result.text.length < MIN_CONTAINS_LENGTH) {
+			continue;
+		}
 		if (result.text.includes(targetText) || targetText.includes(result.text)) {
 			return toMatchResult(result, 0.85, "ocr_contains");
 		}
