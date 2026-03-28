@@ -89,11 +89,16 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 		if (workerPromise) return workerPromise;
 
 		workerPromise = (async () => {
-			const { createWorker, OEM } = await import("tesseract.js");
-			const w = await createWorker(langString, OEM.LSTM_ONLY);
-			worker = w as unknown as TesseractWorkerHandle;
-			log.debug("Tesseract worker created", { languages: langString });
-			return worker;
+			try {
+				const { createWorker, OEM } = await import("tesseract.js");
+				const w = await createWorker(langString, OEM.LSTM_ONLY);
+				worker = w as unknown as TesseractWorkerHandle;
+				log.debug("Tesseract worker created", { languages: langString });
+				return worker;
+			} catch (err) {
+				workerPromise = null; // allow retry on next call
+				throw err;
+			}
 		})();
 
 		return workerPromise;
@@ -151,6 +156,12 @@ export function createOcrEngine(options: OcrEngineOptions = {}): OcrEngine {
 					visionEngine = createVisionOcrEngine(options);
 				}
 				return visionEngine.recognize(imagePath);
+			},
+			async terminate() {
+				if (visionEngine) {
+					await visionEngine.terminate?.();
+					visionEngine = null;
+				}
 			},
 		};
 	}
