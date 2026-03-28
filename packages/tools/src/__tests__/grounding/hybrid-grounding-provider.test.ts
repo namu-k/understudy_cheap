@@ -178,4 +178,33 @@ describe("HybridGroundingProvider", () => {
 
 		expect(result).toBeUndefined();
 	});
+
+	it("Layer 1 fallthrough: falls through to OCR when cache get() throws", async () => {
+		const imagePath = await createTestImage(1920, 1080, "screen.png");
+		const brokenCacheStore: Pick<GroundingCacheStore, "get" | "put"> = {
+			get: vi.fn().mockRejectedValue(new Error("disk I/O error")),
+			put: vi.fn(async () => {}),
+		};
+		const ocrEngine = createMockOcrEngine([
+			{ text: "Submit", bbox: { x: 100, y: 200, width: 80, height: 30 }, confidence: 0.95 },
+		]);
+		const fallback = createMockFallback(undefined);
+
+		const provider = createHybridGroundingProvider({
+			ocrEngine,
+			cacheStore: brokenCacheStore,
+			fallbackProvider: fallback,
+		});
+
+		const result = await provider.ground({
+			imagePath,
+			target: "Submit",
+			action: "click",
+		});
+
+		// Should fall through to OCR despite cache failure
+		expect(ocrEngine.recognize).toHaveBeenCalled();
+		expect(result).toBeDefined();
+		expect(result!.provider).toContain("ocr");
+	});
 });
