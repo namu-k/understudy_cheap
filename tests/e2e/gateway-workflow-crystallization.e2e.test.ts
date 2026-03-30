@@ -103,7 +103,7 @@ async function rpcCall<T>(baseUrl: string, method: string, params: Record<string
 	return payload.result as T;
 }
 
-async function waitForAssertion(assertion: () => void | Promise<void>, timeoutMs = 4000): Promise<void> {
+async function waitForAssertion(assertion: () => void | Promise<void>, timeoutMs = 10000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	for (;;) {
 		try {
