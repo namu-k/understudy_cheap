@@ -8,7 +8,7 @@ Not sure where to begin? Here are the areas where help is most needed:
 
 | Area | What's needed | Good first issue? |
 |------|--------------|:-----------------:|
-| **GUI backends** | Linux (AT-SPI) and Windows (UIA) native GUI support | |
+| **GUI backends** | Linux (AT-SPI) native GUI support (Windows landed) | |
 | **Skills** | New skill modules for popular apps and workflows | ✅ |
 | **Route discovery** | Automatic API detection and upgrade logic (Layer 4) | |
 | **Teach improvements** | Better evidence pack analysis, validation, edge cases | |
@@ -45,7 +45,8 @@ pnpm check        # build + lint + typecheck + test
 
 **Optional (for GUI / teach features):**
 
-- macOS + Xcode CLI Tools — native GUI automation
+- macOS + Xcode CLI Tools — native GUI automation (macOS)
+- Windows 10 2004+ — native GUI automation via Win32 helper binary (Windows)
 - Chrome — extension relay browser mode
 - ffmpeg + ffprobe — teach-by-demonstration video analysis
 
@@ -55,7 +56,7 @@ pnpm check        # build + lint + typecheck + test
 apps/cli           CLI entrypoints, 30+ operator commands
 packages/core      Agent session runtime, config, auth, skills, policies
 packages/gateway   HTTP + WebSocket gateway, session runtime, web surfaces
-packages/gui       Native GUI runtime, screenshot grounding, demo recorder
+packages/gui       Native GUI runtime (macOS + Windows), screenshot grounding, demo recorder
 packages/tools     Built-in tools: browser, web, memory, schedule, GUI, message
 packages/channels  Channel adapters (8 platforms)
 packages/types     Shared TypeScript type definitions

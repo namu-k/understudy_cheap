@@ -42,7 +42,7 @@ Understudy is a **local-first teachable GUI agent runtime** — a monorepo of pn
 apps/cli           # Commander.js CLI with 30+ commands (chat, daemon, gateway, teach, etc.)
 packages/core      # Agent session runtime, config, auth, skill loading, policies, playbooks
 packages/gateway   # Express 5 HTTP + WebSocket gateway, JSON-RPC protocol, session routing
-packages/gui       # Native macOS GUI runtime, screenshot grounding, demo recorder
+packages/gui       # Native macOS + Windows GUI runtime, screenshot grounding, demo recorder
 packages/tools     # Built-in tool implementations (browser, web, memory, schedule, GUI, message)
 packages/channels  # 8 messaging channel adapters (Telegram, Discord, Slack, WhatsApp, Signal, etc.)
 packages/plugins   # Plugin registry and loader
@@ -56,7 +56,7 @@ skills/            # 47+ built-in SKILL.md files with YAML frontmatter
 
 **Skill system** — Skills are `SKILL.md` files with YAML frontmatter (`name`, `description`, `tools`). Bundled skills live in `skills/`; workspace skills are created via `/teach`. The skill loader checks eligibility (required binaries, config). Taught tasks can crystallize into skills with route annotations (preferred/fallback/observed).
 
-**GUI grounding** — Dual-model architecture: the main model decides *what* to do; a separate grounding model predicts screen coordinates from screenshots. HiDPI-aware with automatic high-res refinement for small targets. macOS only currently; Linux (AT-SPI) and Windows (UIA) are open contribution areas.
+**GUI grounding** — Dual-model architecture: the main model decides *what* to do; a separate grounding model predicts screen coordinates from screenshots. HiDPI-aware with automatic high-res refinement for small targets. macOS and Windows (Win32/WGC) supported; Linux (AT-SPI) is an open contribution area.
 
 **Gateway** — JSON-RPC over HTTP and WebSocket. Sessions identified by unique keys. Capability inventory describes available methods. Rate limiting and auth middleware sit in front of session routing.
 

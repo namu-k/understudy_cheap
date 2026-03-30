@@ -36,7 +36,7 @@ Snapshot as of March 26, 2026. Conservative: sourced from official docs; if a pr
 
 | Capability | OpenClaw | Cowork | Vy (Vercept) | Understudy |
 |:---|:---|:---|:---|:---|
-| GUI / Computer Use | Partial — browser automation | Yes | Yes | **Yes (macOS)** |
+| GUI / Computer Use | Partial — browser automation | Yes | Yes | **Yes (macOS, Windows)** |
 | Teach by Demonstration | No | No | Yes ("Watch & Repeat") | **Yes** |
 | Multi-Channel Dispatch | 20 + channels | 50 + MCP connectors (not a messaging inbox) | No | **8 built-in messaging channels** |
 | Open Source | Yes (MIT) | No | No | **Yes (MIT)** |
@@ -344,7 +344,7 @@ understudy agent --message "..."  # Script/CI single-turn call (requires gateway
 
 ## Platform Support
 
-Understudy is currently developed and tested on **macOS**. Core features (CLI, gateway, browser, channels) are cross-platform by design, but native GUI automation and teach-by-demonstration require macOS today. Linux and Windows GUI backends are planned — contributions welcome.
+Understudy is currently developed and tested on **macOS** and **Windows**. Core features (CLI, gateway, browser, channels) are cross-platform by design. Native GUI automation and teach-by-demonstration are available on macOS and Windows (Win10 2004+). Linux GUI backend is planned — contributions welcome.
 
 ## Supported Models
 
@@ -487,7 +487,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
 We're looking for contributors in these areas:
 
-- **GUI backends** — Linux (AT-SPI) and Windows (UIA) native GUI support
+- **GUI backends** — Linux (AT-SPI) native GUI support (Windows support landed in this release)
 - **Skills** — new skill modules for popular apps and workflows
 - **Route discovery** — automatic API detection and upgrade logic (Layer 4)
 - **Teach improvements** — better evidence pack analysis and validation
