@@ -149,4 +149,68 @@ describe("inspectGuiEnvironmentReadiness", () => {
 			status: "warn",
 		});
 	});
+
+	it("reports win32 degraded when helper times out during readiness check", async () => {
+		const snapshot = await inspectGuiEnvironmentReadiness("win32", {
+			now: () => 200,
+			resolveWin32Helper: async () => "C:\\test\\helper.exe",
+			execWin32Helper: async () => { throw new Error("Command timed out after 10000ms"); },
+		});
+
+		// Helper resolved but check-readiness failed — should degrade, not block
+		expect(snapshot.status).toBe("degraded");
+		expect(snapshot.checks.find((c) => c.id === "native_helper")).toMatchObject({
+			status: "ok",
+		});
+		expect(snapshot.checks.find((c) => c.id === "wgc")).toMatchObject({
+			status: "warn",
+			detail: expect.stringContaining("timed out"),
+		});
+	});
+
+	it("reports sendinput error when SendInput is unavailable", async () => {
+		const snapshot = await inspectGuiEnvironmentReadiness("win32", {
+			now: () => 300,
+			resolveWin32Helper: async () => "C:\\test\\helper.exe",
+			execWin32Helper: async () => ({
+				platform: "win32",
+				checks: {
+					wgc_available: { status: true, detail: "WGC available" },
+					sendinput_available: { status: false, detail: "SendInput failed — UIPI" },
+					ui_automation_accessible: { status: true, detail: "OK" },
+					dpi_awareness: { status: "per_monitor_v2", detail: "PMv2" },
+					is_elevated: { status: false, detail: "Not elevated" },
+					os_version: { status: "10.0.22621" },
+				},
+			}),
+		});
+
+		expect(snapshot.checks.find((c) => c.id === "sendinput")).toMatchObject({
+			status: "error",
+			summary: expect.stringContaining("not available"),
+		});
+	});
+
+	it("reports ui_automation warn when UIA is not accessible", async () => {
+		const snapshot = await inspectGuiEnvironmentReadiness("win32", {
+			now: () => 400,
+			resolveWin32Helper: async () => "C:\\test\\helper.exe",
+			execWin32Helper: async () => ({
+				platform: "win32",
+				checks: {
+					wgc_available: { status: true, detail: "WGC available" },
+					sendinput_available: { status: true, detail: "OK" },
+					ui_automation_accessible: { status: false, detail: "CoCreateInstance failed" },
+					dpi_awareness: { status: "per_monitor_v2", detail: "PMv2" },
+					is_elevated: { status: false, detail: "Not elevated" },
+					os_version: { status: "10.0.22621" },
+				},
+			}),
+		});
+
+		expect(snapshot.checks.find((c) => c.id === "accessibility")).toMatchObject({
+			status: "warn",
+			summary: expect.stringContaining("not accessible"),
+		});
+	});
 });
