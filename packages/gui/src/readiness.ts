@@ -298,12 +298,28 @@ async function inspectWin32Readiness(
 			detail: c.ui_automation_accessible?.detail,
 		});
 	} catch (error) {
+		const helperError = "Could not run readiness checks against the Win32 helper.";
+		const detail = formatExecError(error);
 		checks.push({
 			id: "wgc",
 			label: "Windows Graphics Capture",
 			status: "warn",
-			summary: "Could not run readiness checks against the Win32 helper.",
-			detail: formatExecError(error),
+			summary: helperError,
+			detail,
+		});
+		checks.push({
+			id: "screen_recording",
+			label: "Screen Capture",
+			status: "warn",
+			summary: helperError,
+			detail,
+		});
+		checks.push({
+			id: "accessibility",
+			label: "UI Automation",
+			status: "warn",
+			summary: helperError,
+			detail,
 		});
 	}
 
