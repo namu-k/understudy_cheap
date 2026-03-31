@@ -38,7 +38,7 @@ static bool capture_gdi(const std::string& outputPath, int displayIndex, bool in
     bi.biBitCount = 32;
     bi.biCompression = BI_RGB;
 
-    std::vector<uint8_t> pixels(width * height * 4);
+    std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4);
     GetDIBits(hMemDC, hBitmap, 0, height, pixels.data(), (BITMAPINFO*)&bi, DIB_RGB_COLORS);
 
     for (size_t i = 0; i < pixels.size(); i += 4) {
@@ -64,7 +64,9 @@ int cmd_screenshot(int argc, char* argv[]) {
     bool includeCursor = false;
     for (int i = 1; i < argc; i++) {
         std::string arg = argv[i];
-        if (arg == "--display" && i + 1 < argc) displayIndex = std::stoi(argv[++i]);
+        if (arg == "--display" && i + 1 < argc) {
+            try { displayIndex = std::stoi(argv[++i]); } catch (...) { displayIndex = 0; }
+        }
         else if (arg == "--window-title" && i + 1 < argc) windowTitle = argv[++i];
         else if (arg == "--include-cursor") includeCursor = true;
     }
