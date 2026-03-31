@@ -23,8 +23,8 @@ Add full Windows GUI automation platform: Win32 native helper (C++), WGC/GDI cap
 - `captureWin32Screenshot`: temp directory is now cleaned up on error; caller receives a `GuiRuntimeError` instead of a stale temp path.
 - `performWin32Type`: `--replace` and `--submit` are now boolean flags; text is passed after `--` separator to prevent argument mis-parsing.
 - Win32 ArgMap C++ parser: supports `--` end-of-options separator and boolean flags (replace, submit, include-cursor).
-- `{"delete", VK_BACK}` corrected to `{"delete", VK_DELETE}` (VK_BACK is backspace, not forward-delete).
-- Win32 capture helper: integer overflow guard in pixel buffer allocation; `--display` argument wrapped in try/catch.
+- Delete key now sends the correct forward-delete event; the C++ key map was pointing to `VK_BACK` (Backspace) instead of `VK_DELETE`.
+- Win32 capture helper: pixel buffer now safe on displays wider than ~1448px (was silently overflowing); invalid `--display` value falls back to display 0 instead of crashing.
 - Win32 readiness catch block now emits all three expected check stubs (wgc, screen_recording, accessibility) instead of only wgc.
 - `mapCaptureContext`: primary monitor selected by coordinate containment rather than array index (EnumDisplayMonitors order is not guaranteed).
 

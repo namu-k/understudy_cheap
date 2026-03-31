@@ -121,13 +121,13 @@ See the [published skill from this demo](./examples/published-skills/taught-crea
 
 ### Layer 1 — Operate Your Computer Natively
 
-**Status:** implemented today on macOS.
+**Status:** implemented today on macOS and Windows.
 
 Understudy is not just a GUI clicker. It's a unified desktop runtime that mixes every execution route your computer offers — in one agent loop, one session, one policy pipeline:
 
 | Route | Implementation | What it covers |
 |-------|---------------|----------------|
-| **GUI** | 8 tools + screenshot grounding + native input | Any macOS desktop app |
+| **GUI** | 8 tools + screenshot grounding + native input | Any macOS or Windows desktop app |
 | **Browser** | Managed Playwright + Chrome extension relay attach | Any website, either in a clean managed browser or an attached real Chrome tab |
 | **Shell** | `bash` tool with full local access | CLI tools, scripts, file system |
 | **Web** | `web_search` + `web_fetch` | Real-time information retrieval |
@@ -332,6 +332,15 @@ understudy agent --message "..."  # Script/CI single-turn call (requires gateway
 | Xcode Command Line Tools | `xcode-select --install` | Compiles the Swift native helper (`swiftc`) for screen capture and input events |
 | Accessibility permission | See [macOS Permissions](#macos-permissions) | Mouse/keyboard input injection, window queries, demonstration event capture |
 | Screen Recording permission | See [macOS Permissions](#macos-permissions) | Screenshots, GUI grounding, demonstration video recording |
+
+**Windows GUI automation (required for GUI tools and teach-by-demonstration on Windows 10 2004+):**
+
+| Dependency | Install | Purpose |
+|------------|---------|---------|
+| Visual C++ build tools | [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) | Compiles `understudy-win32-helper.exe` for screen capture and input events |
+| Windows Graphics Capture | Windows 10 2004+ (built in) | Screenshot capture via WGC API |
+
+> On Windows, compile the native helper once with `msbuild packages/gui/native/win32/`. The compiled binary is cached and reused across sessions.
 
 **Optional:**
 

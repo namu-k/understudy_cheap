@@ -60,7 +60,7 @@ packages/gui       Native GUI runtime (macOS + Windows), screenshot grounding, d
 packages/tools     Built-in tools: browser, web, memory, schedule, GUI, message
 packages/channels  Channel adapters (8 platforms)
 packages/types     Shared TypeScript type definitions
-skills/            47 built-in skill modules
+skills/            47+ built-in skill modules
 docs/              product design documentation, Pages
 ```
 
