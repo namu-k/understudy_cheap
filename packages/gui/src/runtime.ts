@@ -1689,9 +1689,11 @@ async function performWin32Type(
 		system_events_keystroke_chars: "unicode",
 	};
 	const method = methodMap[params.typeStrategy ?? ""] ?? "unicode";
-	const args = [text, "--method", method];
-	if (params.replace) args.push("--replace", "1");
-	if (params.submit) args.push("--submit", "1");
+	const args: string[] = ["--method", method];
+	if (params.replace) args.push("--replace");
+	if (params.submit) args.push("--submit");
+	// Use -- separator so text starting with "--" isn't parsed as a flag
+	args.push("--", text);
 	await execWin32Helper({ helperPath, subcommand: "type", args });
 	return { actionKind: "type" };
 }
@@ -1742,56 +1744,64 @@ async function captureWin32Screenshot(params: {
 	const tempDir = await mkdtemp(join(tmpdir(), "understudy-gui-screenshot-"));
 	const filePath = join(tempDir, "gui-screenshot.png");
 
-	const screenshotArgs: string[] = [filePath];
-	if (params.windowTitle) screenshotArgs.push("--window-title", params.windowTitle);
-	if (params.includeCursor) screenshotArgs.push("--include-cursor");
+	try {
+		const screenshotArgs: string[] = [filePath];
+		if (params.windowTitle) screenshotArgs.push("--window-title", params.windowTitle);
+		if (params.includeCursor) screenshotArgs.push("--include-cursor");
 
-	await execWin32Helper({ helperPath, subcommand: "screenshot", args: screenshotArgs });
+		await execWin32Helper({ helperPath, subcommand: "screenshot", args: screenshotArgs });
 
-	const contextArgs: string[] = [];
-	if (params.appName) contextArgs.push("--app", params.appName);
-	const rawContext = await execWin32Helper({
-		helperPath,
-		subcommand: "capture-context",
-		args: contextArgs,
-	}) as Win32CaptureContext;
-	const context = mapCaptureContext(rawContext);
+		const contextArgs: string[] = [];
+		if (params.appName) contextArgs.push("--app", params.appName);
+		const rawContext = await execWin32Helper({
+			helperPath,
+			subcommand: "capture-context",
+			args: contextArgs,
+		}) as Win32CaptureContext;
+		const context = mapCaptureContext(rawContext);
 
-	const bytes = Buffer.from(await readFile(filePath));
-	const imageSize = parsePngDimensions(bytes);
-	const captureRect = context.windowBounds && params.captureMode !== "display"
-		? normalizeRect(context.windowBounds)
-		: normalizeRect(context.display.bounds);
-	const scaleX = imageSize?.width && captureRect.width > 0
-		? imageSize.width / captureRect.width
-		: 1;
-	const scaleY = imageSize?.height && captureRect.height > 0
-		? imageSize.height / captureRect.height
-		: 1;
+		const bytes = Buffer.from(await readFile(filePath));
+		const imageSize = parsePngDimensions(bytes);
+		const captureRect = context.windowBounds && params.captureMode !== "display"
+			? normalizeRect(context.windowBounds)
+			: normalizeRect(context.display.bounds);
+		const scaleX = imageSize?.width && captureRect.width > 0
+			? imageSize.width / captureRect.width
+			: 1;
+		const scaleY = imageSize?.height && captureRect.height > 0
+			? imageSize.height / captureRect.height
+			: 1;
 
-	return {
-		bytes,
-		filePath,
-		mimeType: "image/png",
-		filename: "gui-screenshot.png",
-		metadata: {
-			mode: params.captureMode === "display" || !context.windowBounds ? "display" : "window",
-			captureRect,
-			display: context.display as GuiDisplayDescriptor,
-			imageWidth: imageSize?.width,
-			imageHeight: imageSize?.height,
-			scaleX: Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1,
-			scaleY: Number.isFinite(scaleY) && scaleY > 0 ? scaleY : 1,
-			appName: params.appName,
-			windowTitle: context.windowTitle,
-			windowCount: context.windowCount,
-			cursor: context.cursor,
-			cursorVisible: Boolean(params.includeCursor),
-		},
-		cleanup: async () => {
-			await rm(tempDir, { recursive: true, force: true }).catch(() => {});
-		},
-	};
+		return {
+			bytes,
+			filePath,
+			mimeType: "image/png",
+			filename: "gui-screenshot.png",
+			metadata: {
+				mode: params.captureMode === "display" || !context.windowBounds ? "display" : "window",
+				captureRect,
+				display: context.display as GuiDisplayDescriptor,
+				imageWidth: imageSize?.width,
+				imageHeight: imageSize?.height,
+				scaleX: Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1,
+				scaleY: Number.isFinite(scaleY) && scaleY > 0 ? scaleY : 1,
+				appName: params.appName,
+				windowTitle: context.windowTitle,
+				windowCount: context.windowCount,
+				cursor: context.cursor,
+				cursorVisible: Boolean(params.includeCursor),
+			},
+			cleanup: async () => {
+				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+			},
+		};
+	} catch (err) {
+		await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+		const message = err instanceof Error ? err.message : String(err);
+		throw new GuiRuntimeError(
+			`Win32 screenshot capture failed. ${message}`.trim(),
+		);
+	}
 }
 
 async function resolveCaptureContextWin32(
