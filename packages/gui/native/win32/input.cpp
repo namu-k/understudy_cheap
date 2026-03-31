@@ -13,12 +13,30 @@ struct ArgMap {
     std::vector<std::string> positional;
     std::map<std::string, std::string> flags;
 
+    // Boolean flags that don't consume the next argument
+    static bool is_boolean_flag(const std::string& name) {
+        return name == "replace" || name == "submit" || name == "include-cursor";
+    }
+
     static ArgMap parse(int argc, char* argv[]) {
         ArgMap m;
+        bool positional_only = false;
         for (int i = 0; i < argc; i++) {
             std::string arg = argv[i];
-            if (arg.substr(0, 2) == "--" && i + 1 < argc) {
-                m.flags[arg.substr(2)] = argv[++i];
+            if (positional_only) {
+                m.positional.push_back(arg);
+            } else if (arg == "--") {
+                positional_only = true;
+            } else if (arg.size() > 2 && arg.substr(0, 2) == "--") {
+                std::string name = arg.substr(2);
+                if (is_boolean_flag(name)) {
+                    m.flags[name] = "1";
+                } else if (i + 1 < argc) {
+                    m.flags[name] = argv[++i];
+                } else {
+                    // Flag at end with no value — treat as boolean
+                    m.flags[name] = "1";
+                }
             } else {
                 m.positional.push_back(arg);
             }
@@ -220,7 +238,7 @@ static WORD resolve_vk(const std::string& keyName) {
     static const std::map<std::string, WORD> vk_map = {
         {"enter", VK_RETURN}, {"return", VK_RETURN}, {"tab", VK_TAB},
         {"escape", VK_ESCAPE}, {"esc", VK_ESCAPE},
-        {"delete", VK_BACK}, {"backspace", VK_BACK},
+        {"delete", VK_DELETE}, {"backspace", VK_BACK},
         {"home", VK_HOME}, {"end", VK_END},
         {"pageup", VK_PRIOR}, {"pagedown", VK_NEXT},
         {"up", VK_UP}, {"arrowup", VK_UP},
