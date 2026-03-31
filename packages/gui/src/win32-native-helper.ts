@@ -182,7 +182,12 @@ export async function execWin32Helper(params: {
  * shape consumed by runtime.ts.
  */
 export function mapCaptureContext(raw: Win32CaptureContext): GuiCaptureContext {
-	const primary = raw.displays[0];
+	// Select the display whose bounds contain (0,0) — that is the primary monitor.
+	// EnumDisplayMonitors does not guarantee the primary is returned first.
+	const primary = raw.displays.find(
+		(d) => d.bounds.x <= 0 && d.bounds.y <= 0 &&
+			d.bounds.x + d.bounds.width > 0 && d.bounds.y + d.bounds.height > 0,
+	) ?? raw.displays[0];
 	const frontWin = raw.windows.find((w) => w.title === raw.frontmostWindowTitle);
 	return {
 		display: {
