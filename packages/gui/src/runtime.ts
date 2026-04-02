@@ -9,7 +9,6 @@ import {
 	execWin32Helper,
 	mapCaptureContext,
 	resolveWin32Helper,
-	Win32HelperError,
 	type Win32CaptureContext,
 } from "./win32-native-helper.js";
 import {
@@ -1613,10 +1612,6 @@ async function performHotkey(
 
 // ─── Win32 native action functions ───────────────────────────────
 
-async function resolveWin32HelperPath(): Promise<string> {
-	return resolveWin32Helper();
-}
-
 async function performWin32Click(
 	point: GuiPoint,
 	options: {
@@ -1626,7 +1621,7 @@ async function performWin32Click(
 		settleMs?: number;
 	} = {},
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const args = [String(point.x), String(point.y)];
 	if (options.button) args.push("--button", options.button);
 	if (options.count !== undefined) args.push("--count", String(options.count));
@@ -1641,7 +1636,7 @@ async function performWin32Drag(
 	to: GuiPoint,
 	durationMs: number,
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const args = [
 		String(from.x), String(from.y),
 		String(to.x), String(to.y),
@@ -1658,7 +1653,7 @@ async function performWin32Scroll(
 		plan: ResolvedGuiScrollPlan;
 	},
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const direction = params.direction ?? "down";
 	const amount = params.plan.amount;
 	const deltaX = direction === "left" ? -amount : direction === "right" ? amount : 0;
@@ -1680,7 +1675,7 @@ async function performWin32Type(
 		submit?: boolean;
 	},
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const methodMap: Record<string, string> = {
 		physical_keys: "physical_keys",
 		clipboard_paste: "paste",
@@ -1702,7 +1697,7 @@ async function performWin32Hotkey(
 	params: GuiKeyParams,
 	repeat: number = 1,
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const normalizedKey = normalizeHotkeyKeyName(params.key);
 	const args = [normalizedKey];
 	if (params.modifiers?.length) {
@@ -1725,7 +1720,7 @@ async function performWin32Hotkey(
 async function performWin32Move(
 	point: GuiPoint,
 ): Promise<GuiNativeActionResult> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	await execWin32Helper({
 		helperPath,
 		subcommand: "click",
@@ -1740,7 +1735,7 @@ async function captureWin32Screenshot(params: {
 	windowTitle?: string;
 	includeCursor?: boolean;
 }): Promise<GuiScreenshotArtifact> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const tempDir = await mkdtemp(join(tmpdir(), "understudy-gui-screenshot-"));
 	const filePath = join(tempDir, "gui-screenshot.png");
 
@@ -1807,7 +1802,7 @@ async function captureWin32Screenshot(params: {
 async function resolveCaptureContextWin32(
 	appName: string | undefined,
 ): Promise<GuiCaptureContext> {
-	const helperPath = await resolveWin32HelperPath();
+	const helperPath = await resolveWin32Helper();
 	const args: string[] = [];
 	if (appName?.trim()) args.push("--app", appName.trim());
 	const raw = await execWin32Helper({

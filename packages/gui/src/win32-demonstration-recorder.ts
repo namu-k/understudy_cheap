@@ -26,7 +26,6 @@ export function createWin32DemonstrationRecorder(deps: {
 			await mkdir(outputDir, { recursive: true });
 
 			const eventLogPath = join(outputDir, `${prefix}.events.json`);
-			const videoPath = join(outputDir, `${prefix}.mp4`);
 			const startedAt = Date.now();
 
 			const helperPath = await resolveHelper();
@@ -44,7 +43,6 @@ export function createWin32DemonstrationRecorder(deps: {
 				id,
 				state: "recording",
 				startedAt,
-				videoPath,
 				eventLogPath,
 				displayIndex: options.displayIndex,
 				app: options.app,
@@ -57,9 +55,26 @@ export function createWin32DemonstrationRecorder(deps: {
 					const stoppedAt = Date.now();
 
 					if (!eventProcExited) {
-						eventProc.kill();
+						// On Windows, kill() sends TerminateProcess which bypasses the C++ console
+						// handler (and its persist_events() call). Send CTRL_BREAK_EVENT instead so
+						// SetConsoleCtrlHandler fires and flushes the event log gracefully before exit.
+						const pid = eventProc.pid;
+						if (pid !== undefined) {
+							try {
+								process.kill(pid, "SIGBREAK");
+							} catch {
+								eventProc.kill();
+							}
+						} else {
+							eventProc.kill();
+						}
 						await new Promise<void>((resolve) => {
-							const timeout = setTimeout(() => resolve(), DEFAULT_STOP_TIMEOUT_MS);
+							const timeout = setTimeout(() => {
+								if (!eventProcExited) {
+									eventProc.kill();
+								}
+								resolve();
+							}, DEFAULT_STOP_TIMEOUT_MS);
 							eventProc.on("close", () => {
 								clearTimeout(timeout);
 								resolve();
@@ -70,7 +85,7 @@ export function createWin32DemonstrationRecorder(deps: {
 					let hasEventLog = false;
 					try {
 						const s = await stat(eventLogPath);
-						hasEventLog = s.size > 2;
+						hasEventLog = s.isFile() && s.size > 2;
 					} catch {
 						hasEventLog = false;
 					}
@@ -100,7 +115,6 @@ export function createWin32DemonstrationRecorder(deps: {
 						startedAt,
 						stoppedAt,
 						durationMs,
-						videoPath,
 						eventLogPath,
 						displayIndex: options.displayIndex,
 						app: options.app,

@@ -50,7 +50,8 @@ struct ArgMap {
     }
     int flag_int(const std::string& name, int def = 0) const {
         auto it = flags.find(name);
-        return it != flags.end() ? std::stoi(it->second) : def;
+        if (it == flags.end()) return def;
+        try { return std::stoi(it->second); } catch (...) { return def; }
     }
 };
 
@@ -79,8 +80,9 @@ int cmd_click(int argc, char* argv[]) {
         understudy::write_error("INTERNAL_ERROR", "click requires <x> <y>");
         return 1;
     }
-    int x = std::stoi(args.positional[0]);
-    int y = std::stoi(args.positional[1]);
+    int x, y;
+    try { x = std::stoi(args.positional[0]); y = std::stoi(args.positional[1]); }
+    catch (...) { understudy::write_error("INVALID_ARGUMENT", "click: x and y must be integers"); return 1; }
     std::string button = args.flag("button", "left");
     int count = args.flag_int("count", 1);
     int holdMs = args.flag_int("hold-ms", 0);
@@ -318,10 +320,11 @@ int cmd_scroll(int argc, char* argv[]) {
         understudy::write_error("INTERNAL_ERROR", "scroll requires <x> <y> <deltaX> <deltaY>");
         return 1;
     }
-    int x = std::stoi(args.positional[0]);
-    int y = std::stoi(args.positional[1]);
-    int deltaX = std::stoi(args.positional[2]);
-    int deltaY = std::stoi(args.positional[3]);
+    int x, y, deltaX, deltaY;
+    try {
+        x = std::stoi(args.positional[0]); y = std::stoi(args.positional[1]);
+        deltaX = std::stoi(args.positional[2]); deltaY = std::stoi(args.positional[3]);
+    } catch (...) { understudy::write_error("INVALID_ARGUMENT", "scroll: coordinates must be integers"); return 1; }
     std::string unit = args.flag("unit", "line");
 
     move_cursor(x, y);
@@ -362,10 +365,11 @@ int cmd_drag(int argc, char* argv[]) {
         understudy::write_error("INTERNAL_ERROR", "drag requires <fromX> <fromY> <toX> <toY>");
         return 1;
     }
-    int fromX = std::stoi(args.positional[0]);
-    int fromY = std::stoi(args.positional[1]);
-    int toX = std::stoi(args.positional[2]);
-    int toY = std::stoi(args.positional[3]);
+    int fromX, fromY, toX, toY;
+    try {
+        fromX = std::stoi(args.positional[0]); fromY = std::stoi(args.positional[1]);
+        toX = std::stoi(args.positional[2]); toY = std::stoi(args.positional[3]);
+    } catch (...) { understudy::write_error("INVALID_ARGUMENT", "drag: coordinates must be integers"); return 1; }
     int durationMs = args.flag_int("duration", 300);
     int steps = 24;
 

@@ -5068,7 +5068,7 @@ export function createGatewaySessionRuntime(
 				sessionId: entry.id,
 				videoPath: recording.videoPath,
 				eventLogPath: recording.eventLogPath,
-				videoName: basename(recording.videoPath),
+				videoName: recording.videoPath ? basename(recording.videoPath) : undefined,
 				publish: false,
 			});
 			const shouldValidate = asBoolean(params?.validate) !== false;

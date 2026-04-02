@@ -105,7 +105,7 @@ describe("createMacosDemonstrationRecorder", () => {
 			state: "stopped",
 			displayIndex: 2,
 		});
-		await stat(artifact.videoPath);
+		await stat(artifact.videoPath!);
 		await stat(artifact.eventLogPath);
 		expect(spawnCalls[0]).toMatchObject({
 			command: "screencapture",

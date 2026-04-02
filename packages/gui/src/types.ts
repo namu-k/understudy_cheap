@@ -264,7 +264,7 @@ export interface GuiDemonstrationRecordingStatus {
 	id: string;
 	state: "recording" | "stopped" | "failed";
 	startedAt: number;
-	videoPath: string;
+	videoPath?: string;
 	eventLogPath: string;
 	displayIndex?: number;
 	app?: string;

@@ -12,6 +12,16 @@
 
 #pragma comment(lib, "oleaut32.lib")
 
+// Custom message for async UIA element-name lookups.
+// Posted from the LL hook callback (which must return quickly) and handled
+// in the main message loop (where COM calls are safe and unhurried).
+#define WM_UIA_LOOKUP (WM_APP + 1)
+
+struct UiaLookupRequest {
+    POINT pt;
+    size_t eventIndex;
+};
+
 static std::string wchar_to_utf8(const wchar_t* wstr, int len = -1) {
     if (!wstr || (len == 0)) return "";
     if (len < 0) len = (int)wcslen(wstr);
@@ -20,19 +30,6 @@ static std::string wchar_to_utf8(const wchar_t* wstr, int len = -1) {
     std::string result(size, '\0');
     WideCharToMultiByte(CP_UTF8, 0, wstr, len, result.data(), size, nullptr, nullptr);
     return result;
-}
-
-static std::string escape_json(const std::string& s) {
-    std::string out;
-    for (char c : s) {
-        if (c == '"') out += "\\\"";
-        else if (c == '\\') out += "\\\\";
-        else if (c == '\n') out += "\\n";
-        else if (c == '\r') out += "\\r";
-        else if (c == '\t') out += "\\t";
-        else out += c;
-    }
-    return out;
 }
 
 static std::string get_process_name(DWORD pid) {
@@ -62,6 +59,7 @@ struct RecordedEvent {
     std::string app;
     std::string windowTitle;
     std::string target;
+    std::string button;
     double x = 0, y = 0;
     int keyCode = -1;
     std::vector<std::string> modifiers;
@@ -74,6 +72,7 @@ static std::string g_output_path;
 static HHOOK g_mouseHook = nullptr;
 static HHOOK g_keyboardHook = nullptr;
 static IUIAutomation* g_uia = nullptr;
+static DWORD g_thread_id = 0;
 
 static int64_t now_ms() {
     using namespace std::chrono;
@@ -92,6 +91,8 @@ static std::string get_foreground_info(std::string& app, std::string& title) {
     return title;
 }
 
+// Resolve a UIA element name at the given point.
+// Must only be called from the main message-loop thread (COM/STA).
 static std::string get_uia_element_name(POINT pt) {
     if (!g_uia) return "";
     IUIAutomationElement* elem = nullptr;
@@ -138,23 +139,31 @@ static LRESULT CALLBACK mouse_proc(int nCode, WPARAM wParam, LPARAM lParam) {
         get_foreground_info(app, title);
         evt.app = app;
         evt.windowTitle = title;
-        evt.target = get_uia_element_name(ms->pt);
+        // UIA lookup is deferred via WM_UIA_LOOKUP to avoid blocking this callback.
 
+        bool record = true;
         switch (wParam) {
-            case WM_LBUTTONDOWN: evt.type = "mouse_down"; evt.importance = "high"; break;
-            case WM_LBUTTONUP: evt.type = "mouse_up"; evt.importance = "low"; break;
-            case WM_RBUTTONDOWN: evt.type = "mouse_down"; evt.importance = "high"; break;
-            case WM_RBUTTONUP: evt.type = "mouse_up"; evt.importance = "low"; break;
-            case WM_LBUTTONDBLCLK: evt.type = "double_click"; evt.importance = "high"; break;
-            case WM_MOUSEWHEEL: evt.type = "scroll"; evt.importance = "medium"; break;
-            default: goto skip;
+            case WM_LBUTTONDOWN: evt.type = "mouse_down"; evt.button = "left";  evt.importance = "high";   break;
+            case WM_LBUTTONUP:   evt.type = "mouse_up";   evt.button = "left";  evt.importance = "low";    break;
+            case WM_RBUTTONDOWN: evt.type = "mouse_down"; evt.button = "right"; evt.importance = "high";   break;
+            case WM_RBUTTONUP:   evt.type = "mouse_up";   evt.button = "right"; evt.importance = "low";    break;
+            case WM_MOUSEWHEEL:  evt.type = "scroll";                           evt.importance = "medium"; break;
+            default: record = false; break;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(g_mutex);
-            g_events.push_back(std::move(evt));
+        if (record) {
+            size_t eventIdx;
+            {
+                std::lock_guard<std::mutex> lock(g_mutex);
+                eventIdx = g_events.size();
+                g_events.push_back(std::move(evt));
+            }
+            // Request async UIA lookup in the main message loop
+            if (g_thread_id && g_uia) {
+                auto* req = new UiaLookupRequest{ ms->pt, eventIdx };
+                PostThreadMessageW(g_thread_id, WM_UIA_LOOKUP, 0, reinterpret_cast<LPARAM>(req));
+            }
         }
-        skip:;
     }
     return CallNextHookEx(g_mouseHook, nCode, wParam, lParam);
 }
@@ -182,13 +191,14 @@ static LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 static std::string event_to_json(const RecordedEvent& e) {
     std::ostringstream ss;
-    ss << R"({"type":")" << escape_json(e.type)
+    ss << R"({"type":")" << understudy::escape_json(e.type)
        << R"(","timestampMs":)" << e.timestampMs
-       << R"(,"source":")" << escape_json(e.source) << "\"";
-    if (!e.app.empty()) ss << R"(,"app":")" << escape_json(e.app) << "\"";
-    if (!e.windowTitle.empty()) ss << R"(,"windowTitle":")" << escape_json(e.windowTitle) << "\"";
-    if (!e.target.empty()) ss << R"(,"target":")" << escape_json(e.target) << "\"";
-    if (e.type.find("mouse") != std::string::npos || e.type == "double_click" || e.type == "scroll")
+       << R"(,"source":")" << understudy::escape_json(e.source) << "\"";
+    if (!e.button.empty()) ss << R"(,"button":")" << understudy::escape_json(e.button) << "\"";
+    if (!e.app.empty()) ss << R"(,"app":")" << understudy::escape_json(e.app) << "\"";
+    if (!e.windowTitle.empty()) ss << R"(,"windowTitle":")" << understudy::escape_json(e.windowTitle) << "\"";
+    if (!e.target.empty()) ss << R"(,"target":")" << understudy::escape_json(e.target) << "\"";
+    if (e.type.find("mouse") != std::string::npos || e.type == "scroll")
         ss << R"(,"x":)" << e.x << R"(,"y":)" << e.y;
     if (e.keyCode >= 0)
         ss << R"(,"keyCode":)" << e.keyCode;
@@ -196,11 +206,11 @@ static std::string event_to_json(const RecordedEvent& e) {
         ss << R"(,"modifiers":[)";
         for (size_t i = 0; i < e.modifiers.size(); i++) {
             if (i > 0) ss << ",";
-            ss << "\"" << escape_json(e.modifiers[i]) << "\"";
+            ss << "\"" << understudy::escape_json(e.modifiers[i]) << "\"";
         }
         ss << "]";
     }
-    ss << R"(,"importance":")" << escape_json(e.importance) << "\"}";
+    ss << R"(,"importance":")" << understudy::escape_json(e.importance) << "\"}";
     return ss.str();
 }
 
@@ -233,6 +243,7 @@ int cmd_record_events(int argc, char* argv[]) {
         return 1;
     }
     g_output_path = argv[0];
+    g_thread_id = GetCurrentThreadId();
 
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
@@ -252,8 +263,23 @@ int cmd_record_events(int argc, char* argv[]) {
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (msg.message == WM_UIA_LOOKUP) {
+            // Async UIA element-name resolution — safe to block here
+            auto* req = reinterpret_cast<UiaLookupRequest*>(msg.lParam);
+            if (req) {
+                std::string target = get_uia_element_name(req->pt);
+                if (!target.empty()) {
+                    std::lock_guard<std::mutex> lock(g_mutex);
+                    if (req->eventIndex < g_events.size()) {
+                        g_events[req->eventIndex].target = target;
+                    }
+                }
+                delete req;
+            }
+        } else {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
     }
 
     persist_events();

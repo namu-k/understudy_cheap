@@ -82,7 +82,7 @@ int cmd_screenshot(int argc, char* argv[]) {
         return 1;
     }
 
-    understudy::write_ok(R"({"path":")" + outputPath + R"(","method":"gdi_fallback"})");
+    understudy::write_ok(R"({"path":")" + understudy::escape_json(outputPath) + R"(","method":"gdi_fallback"})");
     return 0;
 }
 

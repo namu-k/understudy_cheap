@@ -52,7 +52,7 @@ describe.skipIf(!shouldRunRealRecorderTests)("createMacosDemonstrationRecorder r
 
 		const artifact = await session.stop();
 		const [videoStat, eventLogStat, rawEvents] = await Promise.all([
-			stat(artifact.videoPath),
+			stat(artifact.videoPath!),
 			stat(artifact.eventLogPath),
 			readFile(artifact.eventLogPath, "utf8"),
 		]);
