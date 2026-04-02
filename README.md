@@ -340,7 +340,7 @@ understudy agent --message "..."  # Script/CI single-turn call (requires gateway
 | Visual C++ build tools | [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) | Compiles `understudy-win32-helper.exe` for screen capture and input events |
 | Windows Graphics Capture | Windows 10 2004+ (built in) | Screenshot capture via WGC API |
 
-> On Windows, compile the native helper once with `msbuild packages/gui/native/win32/`. The compiled binary is cached and reused across sessions.
+> On Windows, compile the native helper once with CMake: `cmake -B build packages/gui/native/win32 && cmake --build build --config Release`. The compiled binary is cached and reused across sessions.
 
 **Optional:**
 

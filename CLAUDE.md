@@ -56,7 +56,7 @@ skills/            # 47+ built-in SKILL.md files with YAML frontmatter
 
 **Skill system** — Skills are `SKILL.md` files with YAML frontmatter (`name`, `description`, `tools`). Bundled skills live in `skills/`; workspace skills are created via `/teach`. The skill loader checks eligibility (required binaries, config). Taught tasks can crystallize into skills with route annotations (preferred/fallback/observed).
 
-**GUI grounding** — Dual-model architecture: the main model decides *what* to do; a separate grounding model predicts screen coordinates from screenshots. HiDPI-aware with automatic high-res refinement for small targets. macOS and Windows (Win32/WGC) supported; Linux (AT-SPI) is an open contribution area.
+**GUI grounding** — Dual-model architecture: the main model decides *what* to do; a separate grounding model predicts screen coordinates from screenshots. HiDPI-aware with automatic high-res refinement for small targets. macOS and Windows (Win32/WGC) supported; Linux (AT-SPI) is an open contribution area. Win32 path: `packages/gui/src/win32-native-helper.ts` exposes `resolveWin32Helper`, `execWin32Helper`, and `mapCaptureContext`; the compiled C++ helper lives at `packages/gui/native/win32/` (CMake, MSVC). Demonstration recording on Windows uses `packages/gui/src/win32-demonstration-recorder.ts`.
 
 **Gateway** — JSON-RPC over HTTP and WebSocket. Sessions identified by unique keys. Capability inventory describes available methods. Rate limiting and auth middleware sit in front of session routing.
 

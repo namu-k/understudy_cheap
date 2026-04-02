@@ -50,6 +50,17 @@ pnpm check        # build + lint + typecheck + test
 - Chrome — extension relay browser mode
 - ffmpeg + ffprobe — teach-by-demonstration video analysis
 
+**Building the Win32 C++ native helper** (required only when modifying `packages/gui/native/win32/`):
+
+```bash
+# Prerequisites: Visual Studio 2022 Build Tools with C++ workload
+cmake -B build packages/gui/native/win32
+cmake --build build --config Release
+# Output: build/Release/understudy-win32-helper.exe
+```
+
+The TypeScript wrappers (`packages/gui/src/win32-native-helper.ts`) call the compiled binary via `resolveWin32Helper` / `execWin32Helper`. The demonstration recorder lives in `packages/gui/src/win32-demonstration-recorder.ts`.
+
 ## Repository Layout
 
 ```
