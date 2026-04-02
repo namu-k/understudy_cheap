@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] - 2026-04-03
+
+Bug fixes identified during pre-landing review of the Win32 GUI automation platform.
+
+### Fixed
+
+- Win32 event recorder: UIA element-name lookup now runs asynchronously via `WM_UIA_LOOKUP` in the message loop, preventing LL hook timeout (Windows unhooks automatically after 200ms if the callback blocks).
+- Win32 event recorder: graceful shutdown now sends `SIGBREAK` (`CTRL_BREAK_EVENT`) instead of `SIGTERM` so the C++ `SetConsoleCtrlHandler` fires and flushes the event log before exit.
+- Win32 event recorder: removed dead `WM_LBUTTONDBLCLK` case (LL hooks never receive this synthetic message); added `button` field ("left"/"right") to mouse event JSON output.
+- Win32 screenshot helper: Windows file paths (containing backslashes) are now JSON-escaped before embedding in the response envelope, preventing invalid JSON on Windows.
+- Win32 input helper: `stoi` calls for coordinate arguments wrapped in `try/catch` — invalid arguments now return a structured error instead of throwing and crashing the process.
+- Win32 demonstration recorder: stopped event-file check now uses `stat.isFile()` in addition to `stat.size > 2`, preventing false positives from directory entries.
+- `packages/gui`: `GuiDemonstrationRecordingStatus.videoPath` made optional — Win32 recorder does not produce a video file; macOS recorder still provides it.
+- `packages/gui`: removed unused `Win32HelperError` import and dead `resolveWin32HelperPath` passthrough from `runtime.ts`.
+- `stb_image_write.h`: replaced 22-line stub with the real public-domain implementation (required for PNG screenshot capture to link correctly).
+
 ## [0.3.0] - 2026-03-31
 
 Add full Windows GUI automation platform: Win32 native helper (C++), WGC/GDI capture, SendInput mouse/keyboard, UI Automation readiness checks, demonstration recorder, and TypeScript runtime dispatch for all GUI actions on Windows.
