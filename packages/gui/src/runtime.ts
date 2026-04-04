@@ -6,6 +6,12 @@ import { execFileAsync } from "./exec-utils.js";
 import { resolveNativeGuiHelperBinary } from "./native-helper.js";
 import { normalizeGuiGroundingMode } from "./types.js";
 import {
+	execWin32Helper,
+	mapCaptureContext,
+	resolveWin32Helper,
+	type Win32CaptureContext,
+} from "./win32-native-helper.js";
+import {
 	resolveGuiRuntimeCapabilities,
 	type GuiRuntimeCapabilitySnapshot,
 } from "./capabilities.js";
@@ -213,14 +219,14 @@ interface GuiScriptWindowSelection {
 	bounds?: GuiRect;
 }
 
-export const GUI_UNSUPPORTED_MESSAGE = "GUI tools are currently supported on macOS only.";
+export const GUI_UNSUPPORTED_MESSAGE = "GUI tools are currently supported on macOS and Windows only.";
 
 export class GuiRuntimeError extends Error {
 	override name = "GuiRuntimeError";
 }
 
 export function isGuiPlatformSupported(platform: NodeJS.Platform = process.platform): boolean {
-	return platform === "darwin";
+	return platform === "darwin" || platform === "win32";
 }
 
 function unsupportedResult(reason: string): GuiActionResult {
@@ -631,7 +637,7 @@ function normalizeDisplayRectInCapture(rect: GuiRect, artifact: GuiCaptureMetada
 
 function buildCaptureDetails(metadata: GuiCaptureMetadata): Record<string, unknown> {
 	return {
-		capture_method: "screencapture",
+		capture_method: process.platform === "win32" ? "win32_helper" : "screencapture",
 		capture_mode: metadata.mode,
 		capture_rect: metadata.captureRect,
 		capture_display: metadata.display,
@@ -1165,6 +1171,9 @@ async function resolveCaptureContext(
 		windowSelector?: GuiWindowSelector;
 	} = {},
 ): Promise<GuiCaptureContext> {
+	if (process.platform === "win32") {
+		return resolveCaptureContextWin32(appName);
+	}
 	const windowSelection = resolveWindowSelection({
 		windowSelector: options.windowSelector,
 	});
@@ -1601,6 +1610,209 @@ async function performHotkey(
 	return { actionKind };
 }
 
+// ─── Win32 native action functions ───────────────────────────────
+
+async function performWin32Click(
+	point: GuiPoint,
+	options: {
+		button?: "left" | "right" | "middle";
+		count?: number;
+		holdMs?: number;
+		settleMs?: number;
+	} = {},
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	const args = [String(point.x), String(point.y)];
+	if (options.button) args.push("--button", options.button);
+	if (options.count !== undefined) args.push("--count", String(options.count));
+	if (options.holdMs !== undefined && options.holdMs > 0) args.push("--hold-ms", String(options.holdMs));
+	if (options.settleMs !== undefined) args.push("--settle-ms", String(options.settleMs));
+	await execWin32Helper({ helperPath, subcommand: "click", args });
+	return { actionKind: "click" };
+}
+
+async function performWin32Drag(
+	from: GuiPoint,
+	to: GuiPoint,
+	durationMs: number,
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	const args = [
+		String(from.x), String(from.y),
+		String(to.x), String(to.y),
+		"--duration", String(durationMs),
+	];
+	await execWin32Helper({ helperPath, subcommand: "drag", args });
+	return { actionKind: "drag" };
+}
+
+async function performWin32Scroll(
+	point: GuiPoint | undefined,
+	params: {
+		direction?: GuiScrollParams["direction"];
+		plan: ResolvedGuiScrollPlan;
+	},
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	const direction = params.direction ?? "down";
+	const amount = params.plan.amount;
+	const deltaX = direction === "left" ? -amount : direction === "right" ? amount : 0;
+	const deltaY = direction === "up" ? amount : direction === "down" ? -amount : 0;
+	const args = [
+		String(point?.x ?? 0), String(point?.y ?? 0),
+		String(deltaX), String(deltaY),
+		"--unit", params.plan.unit,
+	];
+	await execWin32Helper({ helperPath, subcommand: "scroll", args });
+	return { actionKind: "scroll" };
+}
+
+async function performWin32Type(
+	text: string,
+	params: {
+		typeStrategy?: string;
+		replace?: boolean;
+		submit?: boolean;
+	},
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	const methodMap: Record<string, string> = {
+		physical_keys: "physical_keys",
+		clipboard_paste: "paste",
+		system_events_paste: "paste",
+		system_events_keystroke: "unicode",
+		system_events_keystroke_chars: "unicode",
+	};
+	const method = methodMap[params.typeStrategy ?? ""] ?? "unicode";
+	const args: string[] = ["--method", method];
+	if (params.replace) args.push("--replace");
+	if (params.submit) args.push("--submit");
+	// Use -- separator so text starting with "--" isn't parsed as a flag
+	args.push("--", text);
+	await execWin32Helper({ helperPath, subcommand: "type", args });
+	return { actionKind: "type" };
+}
+
+async function performWin32Hotkey(
+	params: GuiKeyParams,
+	repeat: number = 1,
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	const normalizedKey = normalizeHotkeyKeyName(params.key);
+	const args = [normalizedKey];
+	if (params.modifiers?.length) {
+		const modMap: Record<string, string> = {
+			command: "ctrl",
+			option: "alt",
+			control: "ctrl",
+			shift: "shift",
+		};
+		const winMods = (params.modifiers ?? [])
+			.map((m) => modMap[m.trim().toLowerCase()] ?? m.trim().toLowerCase())
+			.filter(Boolean);
+		if (winMods.length) args.push("--modifiers", winMods.join(","));
+	}
+	if (repeat > 1) args.push("--repeat", String(repeat));
+	await execWin32Helper({ helperPath, subcommand: "hotkey", args });
+	return { actionKind: "hotkey" };
+}
+
+async function performWin32Move(
+	point: GuiPoint,
+): Promise<GuiNativeActionResult> {
+	const helperPath = await resolveWin32Helper();
+	await execWin32Helper({
+		helperPath,
+		subcommand: "click",
+		args: [String(point.x), String(point.y), "--count", "0", "--settle-ms", "0"],
+	});
+	return { actionKind: "move" };
+}
+
+async function captureWin32Screenshot(params: {
+	appName?: string;
+	captureMode?: GuiCaptureMode;
+	windowTitle?: string;
+	includeCursor?: boolean;
+}): Promise<GuiScreenshotArtifact> {
+	const helperPath = await resolveWin32Helper();
+	const tempDir = await mkdtemp(join(tmpdir(), "understudy-gui-screenshot-"));
+	const filePath = join(tempDir, "gui-screenshot.png");
+
+	try {
+		const screenshotArgs: string[] = [filePath];
+		if (params.windowTitle) screenshotArgs.push("--window-title", params.windowTitle);
+		if (params.includeCursor) screenshotArgs.push("--include-cursor");
+
+		await execWin32Helper({ helperPath, subcommand: "screenshot", args: screenshotArgs });
+
+		const contextArgs: string[] = [];
+		if (params.appName) contextArgs.push("--app", params.appName);
+		const rawContext = await execWin32Helper({
+			helperPath,
+			subcommand: "capture-context",
+			args: contextArgs,
+		}) as Win32CaptureContext;
+		const context = mapCaptureContext(rawContext);
+
+		const bytes = Buffer.from(await readFile(filePath));
+		const imageSize = parsePngDimensions(bytes);
+		const captureRect = context.windowBounds && params.captureMode !== "display"
+			? normalizeRect(context.windowBounds)
+			: normalizeRect(context.display.bounds);
+		const scaleX = imageSize?.width && captureRect.width > 0
+			? imageSize.width / captureRect.width
+			: 1;
+		const scaleY = imageSize?.height && captureRect.height > 0
+			? imageSize.height / captureRect.height
+			: 1;
+
+		return {
+			bytes,
+			filePath,
+			mimeType: "image/png",
+			filename: "gui-screenshot.png",
+			metadata: {
+				mode: params.captureMode === "display" || !context.windowBounds ? "display" : "window",
+				captureRect,
+				display: context.display as GuiDisplayDescriptor,
+				imageWidth: imageSize?.width,
+				imageHeight: imageSize?.height,
+				scaleX: Number.isFinite(scaleX) && scaleX > 0 ? scaleX : 1,
+				scaleY: Number.isFinite(scaleY) && scaleY > 0 ? scaleY : 1,
+				appName: params.appName,
+				windowTitle: context.windowTitle,
+				windowCount: context.windowCount,
+				cursor: context.cursor,
+				cursorVisible: Boolean(params.includeCursor),
+			},
+			cleanup: async () => {
+				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+			},
+		};
+	} catch (err) {
+		await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+		const message = err instanceof Error ? err.message : String(err);
+		throw new GuiRuntimeError(
+			`Win32 screenshot capture failed. ${message}`.trim(),
+		);
+	}
+}
+
+async function resolveCaptureContextWin32(
+	appName: string | undefined,
+): Promise<GuiCaptureContext> {
+	const helperPath = await resolveWin32Helper();
+	const args: string[] = [];
+	if (appName?.trim()) args.push("--app", appName.trim());
+	const raw = await execWin32Helper({
+		helperPath,
+		subcommand: "capture-context",
+		args,
+	}) as Win32CaptureContext;
+	return mapCaptureContext(raw) as unknown as GuiCaptureContext;
+}
+
 async function captureScreenshotArtifact(params: {
 	appName?: string;
 	captureMode?: GuiCaptureMode;
@@ -1609,6 +1821,9 @@ async function captureScreenshotArtifact(params: {
 	windowSelector?: GuiWindowSelector;
 	includeCursor?: boolean;
 } = {}): Promise<GuiScreenshotArtifact> {
+	if (process.platform === "win32") {
+		return captureWin32Screenshot(params);
+	}
 	const windowSelection = resolveWindowSelection({
 		windowTitle: params.windowTitle,
 		windowSelector: params.windowSelector,
@@ -2257,6 +2472,20 @@ export class ComputerUseGuiRuntime {
 		const holdMs = Math.max(100, Math.round(params.holdMs ?? DEFAULT_CLICK_AND_HOLD_MS));
 
 		const executeForIntent = async (point: GuiPoint): Promise<GuiNativeActionResult> => {
+			if (process.platform === "win32") {
+				switch (intent) {
+					case "right_click":
+						return performWin32Click(point, { button: "right" });
+					case "double_click":
+						return performWin32Click(point, { count: 2 });
+					case "hover":
+						return performWin32Click(point, { count: 0, settleMs });
+					case "click_and_hold":
+						return performWin32Click(point, { holdMs });
+					default:
+						return performWin32Click(point, { button: "left" });
+				}
+			}
 			switch (intent) {
 				case "right_click":
 					return performRightClick(appName, point, { activateApp: false });
@@ -2380,13 +2609,19 @@ export class ComputerUseGuiRuntime {
 				});
 			}
 
-			const action = await performDrag(
-				appName,
-				source.point,
-				destination.point,
-				Math.max(100, params.durationMs ?? DEFAULT_DRAG_DURATION_MS),
-				{ activateApp: true },
-			);
+			const action = process.platform === "win32"
+				? await performWin32Drag(
+					source.point,
+					destination.point,
+					Math.max(100, params.durationMs ?? DEFAULT_DRAG_DURATION_MS),
+				)
+				: await performDrag(
+					appName,
+					source.point,
+					destination.point,
+					Math.max(100, params.durationMs ?? DEFAULT_DRAG_DURATION_MS),
+					{ activateApp: true },
+				);
 			const evidence = await this.captureEvidenceImage({
 				appName,
 				captureMode: params.captureMode,
@@ -2479,12 +2714,17 @@ export class ComputerUseGuiRuntime {
 				grounded,
 				context,
 			});
-			const action = await performScroll(appName, grounded?.point, {
-				direction: params.direction,
-				plan: scrollPlan,
-			}, {
-				activateApp: !grounded,
-			});
+			const action = process.platform === "win32"
+				? await performWin32Scroll(grounded?.point, {
+					direction: params.direction,
+					plan: scrollPlan,
+				})
+				: await performScroll(appName, grounded?.point, {
+					direction: params.direction,
+					plan: scrollPlan,
+				}, {
+					activateApp: !grounded,
+				});
 			const direction = params.direction ?? "down";
 			const evidence = await this.captureEvidenceImage({
 				appName,
@@ -2568,14 +2808,24 @@ export class ComputerUseGuiRuntime {
 			} finally {
 				await artifact.cleanup();
 			}
-			await performPointClick(appName, grounded.point, {
-				activateApp: true,
-			});
+			if (process.platform === "win32") {
+				await performWin32Click(grounded.point, { button: "left" });
+			} else {
+				await performPointClick(appName, grounded.point, {
+					activateApp: true,
+				});
+			}
 			await new Promise((resolve) => setTimeout(resolve, DEFAULT_TYPE_FOCUS_SETTLE_MS));
 		}
 
 		let action: GuiNativeActionResult;
-		if (
+		if (process.platform === "win32") {
+			action = await performWin32Type(input.text, {
+				typeStrategy: params.typeStrategy,
+				replace: params.replace,
+				submit: params.submit,
+			});
+		} else if (
 			params.typeStrategy === "system_events_paste" ||
 			params.typeStrategy === "system_events_keystroke" ||
 			params.typeStrategy === "system_events_keystroke_chars"
@@ -2634,7 +2884,9 @@ export class ComputerUseGuiRuntime {
 			windowTitle: params.windowTitle,
 			windowSelector: params.windowSelector,
 		});
-		const action = await performHotkey({ ...params, app: appName }, repeat);
+		const action = process.platform === "win32"
+			? await performWin32Hotkey(params, repeat)
+			: await performHotkey({ ...params, app: appName }, repeat);
 		const keySequence = [...(params.modifiers ?? []), params.key].join("+");
 		const evidence = await this.captureEvidenceImage({
 			appName,
@@ -2667,8 +2919,12 @@ export class ComputerUseGuiRuntime {
 
 		const appName = normalizeOptionalString(params.app);
 		const point = { x: Math.round(params.x), y: Math.round(params.y) };
-		await performHover(appName, point, 0, { activateApp: Boolean(appName) });
-		const reportedActionKind = "cg_move";
+		if (process.platform === "win32") {
+			await performWin32Move(point);
+		} else {
+			await performHover(appName, point, 0, { activateApp: Boolean(appName) });
+		}
+		const reportedActionKind = process.platform === "win32" ? "win32_move" : "cg_move";
 		return buildGuiResult({
 			text: `Moved cursor to (${point.x}, ${point.y}) via ${reportedActionKind}.`,
 			status: "action_sent",

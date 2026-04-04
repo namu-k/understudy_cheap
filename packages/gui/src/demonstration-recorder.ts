@@ -664,6 +664,22 @@ async function synthesizeFallbackVideo(params: {
 	}
 }
 
+export function createDemonstrationRecorder(deps: RecorderDeps & {
+	platform?: NodeJS.Platform;
+} = {}): GuiDemonstrationRecorder {
+	const platform = deps.platform ?? process.platform;
+	if (platform === "win32") {
+		return {
+			async start(options) {
+				const { createWin32DemonstrationRecorder } = await import("./win32-demonstration-recorder.js");
+				const recorder = createWin32DemonstrationRecorder();
+				return recorder.start(options);
+			},
+		};
+	}
+	return createMacosDemonstrationRecorder(deps);
+}
+
 export function createMacosDemonstrationRecorder(deps: RecorderDeps = {}): GuiDemonstrationRecorder {
 	const spawnImpl = deps.spawnImpl ?? spawn;
 	const now = deps.now ?? Date.now;

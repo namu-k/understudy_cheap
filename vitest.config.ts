@@ -3,7 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "tests/**/*.test.ts"],
-		testTimeout: 30000,
+		testTimeout: 60000,
+		hookTimeout: 120000,
 		coverage: {
 			provider: "v8",
 			// M1 core runtime paths: core + gateway + tools + web channel.

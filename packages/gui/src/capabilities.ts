@@ -104,7 +104,8 @@ export function resolveGuiRuntimeCapabilities(params: {
 	groundingAvailable?: boolean;
 	environmentReadiness?: GuiEnvironmentReadinessSnapshot;
 } = {}): GuiRuntimeCapabilitySnapshot {
-	const platformSupported = (params.platform ?? process.platform) === "darwin";
+	const platform = params.platform ?? process.platform;
+	const platformSupported = platform === "darwin" || platform === "win32";
 	const groundingAvailable = params.groundingAvailable === true;
 	const nativeHelperAvailable = platformSupported
 		&& resolveReadinessCheckStatus(params.environmentReadiness, "native_helper") !== "error";
