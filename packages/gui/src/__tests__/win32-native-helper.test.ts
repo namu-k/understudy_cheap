@@ -384,4 +384,133 @@ describe("win32-native-helper", () => {
 			expect(err).toBeInstanceOf(Error);
 		});
 	});
+
+	describe("getUiaTree", () => {
+		it("calls uia-tree subcommand and returns parsed tree", async () => {
+			const tree = {
+				name: "Desktop",
+				controlType: "Pane",
+				automationId: "",
+				className: "#32769",
+				bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+				isEnabled: true,
+				isOffscreen: false,
+				children: [
+					{
+						name: "Notepad",
+						controlType: "Window",
+						automationId: "Notepad",
+						className: "Notepad",
+						bounds: { x: 100, y: 100, width: 800, height: 600 },
+						isEnabled: true,
+						isOffscreen: false,
+						children: [],
+					},
+				],
+			};
+			mocks.execFile.mockImplementation(
+				(_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+					expect(args[0]).toBe("uia-tree");
+					expect(args).toContain("--app");
+					expect(args).toContain("notepad");
+					expect(args).toContain("--max-depth");
+					expect(args).toContain("5");
+					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+				},
+			);
+
+			const { getUiaTree } = await import("../win32-native-helper.js");
+			const result = await getUiaTree({
+				helperPath: "C:\\helper.exe",
+				app: "notepad",
+				maxDepth: 5,
+			});
+			expect(result).toEqual(tree);
+		});
+
+		it("passes --hwnd when provided", async () => {
+			const tree = {
+				name: "Window",
+				controlType: "Window",
+				automationId: "",
+				className: "",
+				bounds: { x: 0, y: 0, width: 100, height: 100 },
+				isEnabled: true,
+				isOffscreen: false,
+			};
+			mocks.execFile.mockImplementation(
+				(_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+					expect(args).toContain("--hwnd");
+					expect(args).toContain("12345");
+					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+				},
+			);
+
+			const { getUiaTree } = await import("../win32-native-helper.js");
+			const result = await getUiaTree({
+				helperPath: "C:\\helper.exe",
+				hwnd: "12345",
+			});
+			expect(result.controlType).toBe("Window");
+		});
+
+		it("passes --title when provided", async () => {
+			const tree = {
+				name: "Untitled - Notepad",
+				controlType: "Window",
+				automationId: "",
+				className: "Notepad",
+				bounds: { x: 0, y: 0, width: 800, height: 600 },
+				isEnabled: true,
+				isOffscreen: false,
+			};
+			mocks.execFile.mockImplementation(
+				(_cmd: string, args: string[], _opts: unknown, cb: Function) => {
+					expect(args).toContain("--title");
+					expect(args).toContain("Untitled");
+					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+				},
+			);
+
+			const { getUiaTree } = await import("../win32-native-helper.js");
+			const result = await getUiaTree({
+				helperPath: "C:\\helper.exe",
+				title: "Untitled",
+			});
+			expect(result.name).toBe("Untitled - Notepad");
+		});
+
+		it("uses 30s default timeout for large trees", async () => {
+			mocks.execFile.mockImplementation(
+				(_cmd: string, _args: string[], opts: { timeout: number }, cb: Function) => {
+					expect(opts.timeout).toBe(30_000);
+					cb(null, JSON.stringify({ status: "ok", data: { name: "root", controlType: "Pane", automationId: "", className: "", bounds: { x: 0, y: 0, width: 0, height: 0 }, isEnabled: true, isOffscreen: false } }), "");
+				},
+			);
+
+			const { getUiaTree } = await import("../win32-native-helper.js");
+			await getUiaTree({ helperPath: "C:\\helper.exe" });
+		});
+
+		it("propagates WINDOW_NOT_FOUND error", async () => {
+			mocks.execFile.mockImplementation(
+				(_cmd: string, _args: string[], _opts: unknown, cb: Function) => {
+					cb(
+						null,
+						JSON.stringify({
+							status: "error",
+							code: "WINDOW_NOT_FOUND",
+							message: "No visible window matches: app=nonexistent",
+						}),
+						"",
+					);
+				},
+			);
+
+			const { getUiaTree } = await import("../win32-native-helper.js");
+			await expect(
+				getUiaTree({ helperPath: "C:\\helper.exe", app: "nonexistent" }),
+			).rejects.toThrow(/WINDOW_NOT_FOUND/);
+		});
+	});
 });

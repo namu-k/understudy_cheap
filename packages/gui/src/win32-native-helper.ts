@@ -203,3 +203,50 @@ export function mapCaptureContext(raw: Win32CaptureContext): GuiCaptureContext {
 		appName: raw.frontmostApp || undefined,
 	};
 }
+
+/** A single node in the UIA accessibility tree returned by the Win32 helper. */
+export interface Win32UiaTreeNode {
+	name: string;
+	controlType: string;
+	automationId: string;
+	className: string;
+	bounds: { x: number; y: number; width: number; height: number };
+	isEnabled: boolean;
+	isOffscreen: boolean;
+	children?: Win32UiaTreeNode[];
+}
+
+/**
+ * Enumerate the UIA accessibility tree for a window.
+ *
+ * Targeting precedence: hwnd > app/title filter > desktop root.
+ */
+export async function getUiaTree(params: {
+	helperPath: string;
+	hwnd?: string;
+	app?: string;
+	title?: string;
+	maxDepth?: number;
+	timeoutMs?: number;
+}): Promise<Win32UiaTreeNode> {
+	const args: string[] = [];
+	if (params.hwnd) {
+		args.push("--hwnd", params.hwnd);
+	}
+	if (params.app) {
+		args.push("--app", params.app);
+	}
+	if (params.title) {
+		args.push("--title", params.title);
+	}
+	if (params.maxDepth !== undefined) {
+		args.push("--max-depth", String(params.maxDepth));
+	}
+	const result = await execWin32Helper({
+		helperPath: params.helperPath,
+		subcommand: "uia-tree",
+		args,
+		timeoutMs: params.timeoutMs ?? 30_000,
+	});
+	return result as Win32UiaTreeNode;
+}

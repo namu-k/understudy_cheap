@@ -96,6 +96,24 @@ Test-Case "record-events --stop-after-ms exits cleanly with valid JSON" {
     }
 }
 
+# ── 6. uia-tree ──────────────────────────────────────────────────────────────
+Write-Host ""
+Write-Host "Suite: uia-tree"
+Test-Case "uia-tree with --max-depth 1 returns ok JSON" {
+    $out = & $BinaryPath uia-tree --max-depth 1 2>$null | Out-String
+    $json = $out | ConvertFrom-Json
+    if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
+    if ($null -eq $json.data.controlType) { throw "missing controlType in root element" }
+    if ($null -eq $json.data.name) { throw "missing name in root element" }
+}
+
+Test-Case "uia-tree with non-existent app returns error" {
+    $out = & $BinaryPath uia-tree --app "zzz_nonexistent_app_zzz" 2>$null | Out-String
+    $json = $out | ConvertFrom-Json
+    if ($json.status -ne "error") { throw "expected status=error, got $($json.status)" }
+    if ($json.code -ne "WINDOW_NOT_FOUND") { throw "expected code=WINDOW_NOT_FOUND, got $($json.code)" }
+}
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "Results: $passed passed, $failed failed" -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
