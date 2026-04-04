@@ -8,6 +8,7 @@
 #include <sstream>
 #include <fstream>
 #include <chrono>
+#include <cstdlib>
 #include <mutex>
 
 #pragma comment(lib, "oleaut32.lib")
@@ -226,6 +227,12 @@ static void persist_events() {
     understudy::log("Persisted " + std::to_string(g_events.size()) + " events to " + g_output_path);
 }
 
+// Timer callback — fires once after --stop-after-ms elapses.
+// Posts WM_QUIT so GetMessage() returns 0 and the normal cleanup path runs.
+static void CALLBACK stop_timer_proc(HWND, UINT, UINT_PTR, DWORD) {
+    PostQuitMessage(0);
+}
+
 static BOOL WINAPI console_handler(DWORD signal) {
     if (signal == CTRL_C_EVENT || signal == CTRL_BREAK_EVENT || signal == CTRL_CLOSE_EVENT) {
         persist_events();
@@ -245,6 +252,25 @@ int cmd_record_events(int argc, char* argv[]) {
     g_output_path = argv[0];
     g_thread_id = GetCurrentThreadId();
 
+    int stop_after_ms = 0;
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "--stop-after-ms") {
+            if (i + 1 >= argc) {
+                understudy::write_error("INVALID_ARGUMENT", "--stop-after-ms requires a value");
+                return 1;
+            }
+            char* end = nullptr;
+            long val = std::strtol(argv[++i], &end, 10);
+            if (end == argv[i] || *end != '\0' || val <= 0 || val > UINT_MAX) {
+                understudy::write_error("INVALID_ARGUMENT", "--stop-after-ms requires a positive integer");
+                return 1;
+            }
+            stop_after_ms = static_cast<int>(val);
+            break;
+        }
+    }
+
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
                      __uuidof(IUIAutomation), (void**)&g_uia);
@@ -260,6 +286,15 @@ int cmd_record_events(int argc, char* argv[]) {
     }
 
     understudy::log("Recording events to " + g_output_path + " — press Ctrl+C to stop");
+
+    if (stop_after_ms > 0) {
+        UINT_PTR timerId = SetTimer(nullptr, 0, static_cast<UINT>(stop_after_ms), stop_timer_proc);
+        if (!timerId) {
+            understudy::write_error("TIMER_FAILED", "SetTimer returned 0");
+            return 1;
+        }
+        understudy::log("Will stop after " + std::to_string(stop_after_ms) + " ms");
+    }
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
