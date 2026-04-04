@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.2] - 2026-04-04
+
+Add uia-tree subcommand to the Win32 native helper binary for UI Automation accessibility tree enumeration.
+
+### Added
+
+- `uia-tree` subcommand in `understudy-win32-helper.exe`: recursive UIA tree walking via COM `IUIAutomation` + `FindAll(TreeScope_Children)`.
+- Targeting by `--hwnd`, `--app`/`--title` filter, or desktop root element.
+- Safety guards: `--max-depth` (default 8), `--max-count` (default 2000), `--include-invisible` flag.
+- `Win32UiaTreeNode` TypeScript interface and `getUiaTree()` async wrapper in `win32-native-helper.ts`.
+- 5 unit tests for `getUiaTree` and 2 PowerShell smoke tests for the C++ binary.
+
+### Fixed
+
+- `std::stoull` on invalid `--hwnd` wrapped in try/catch to prevent crashes.
+- COM ref-count imbalance on `RPC_E_CHANGED_MODE` — tracked `com_initialized` flag to guard `CoUninitialize`.
+- Default `--max-depth` lowered from 25 to 8 to prevent OOM on deep trees.
+- Missing `WS_EX_TOOLWINDOW` filter in window enumeration (matches `windows_mgmt.cpp` pattern).
+
 ## [0.3.1] - 2026-04-03
 
 Bug fixes identified during pre-landing review of the Win32 GUI automation platform.
