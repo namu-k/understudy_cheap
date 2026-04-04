@@ -16,6 +16,7 @@ int cmd_activate_window(int argc, char* argv[]);
 int cmd_capture_context(int argc, char* argv[]);
 int cmd_check_readiness(int argc, char* argv[]);
 int cmd_record_events(int argc, char* argv[]);
+int cmd_uia_tree(int argc, char* argv[]);
 
 static void set_dpi_awareness() {
     // Try Per-Monitor V2 first (Win10 1703+)
@@ -48,6 +49,7 @@ int main(int argc, char* argv[]) {
     if (cmd == "capture-context")   return cmd_capture_context(sub_argc, sub_argv);
     if (cmd == "check-readiness")   return cmd_check_readiness(sub_argc, sub_argv);
     if (cmd == "record-events")     return cmd_record_events(sub_argc, sub_argv);
+    if (cmd == "uia-tree")          return cmd_uia_tree(sub_argc, sub_argv);
 
     understudy::write_error("INTERNAL_ERROR", "Unknown subcommand: " + cmd);
     return 1;

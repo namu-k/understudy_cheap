@@ -14,6 +14,7 @@ add_executable(understudy-win32-helper
     windows_mgmt.cpp
     readiness.cpp
     event_recorder.cpp
+    uia_tree.cpp
 )
 
 target_link_libraries(understudy-win32-helper PRIVATE
