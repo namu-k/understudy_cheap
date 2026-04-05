@@ -10,6 +10,7 @@ import {
 } from "@understudy/gui";
 import { asString, asNumber, asBoolean } from "@understudy/core";
 import { createOpenAIGroundingProvider } from "./openai-grounding-provider.js";
+import { createWin32UiaGroundingProvider } from "./uia-grounding-provider.js";
 import { createHybridGroundingProvider, createOcrEngine, GroundingCacheStore } from "./grounding/index.js";
 import { textResult } from "./bridge/bridge-rpc.js";
 import { homedir } from "node:os";
@@ -396,6 +397,18 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			providerName: process.env.UNDERSTUDY_GUI_GROUNDING_PROVIDER?.trim() || undefined,
 		})
 		: undefined;
+	// On Windows, wrap the grounding provider with UIA-first matching.
+	// The provider resolves the helper path lazily on first ground() call,
+	// so this stays synchronous — no await needed here.
+	if (process.platform === "win32" && explicitOpenAI) {
+		const uiaProvider = createWin32UiaGroundingProvider({
+			fallbackProvider: explicitOpenAI,
+		});
+		return new ComputerUseGuiRuntime({
+			groundingProvider: uiaProvider,
+		});
+	}
+
 	return new ComputerUseGuiRuntime({
 		groundingProvider: explicitOpenAI,
 	});
