@@ -276,18 +276,22 @@ static std::string serialize_element(IUIAutomationElement* elem, int depth, Seri
     BOOL isEnabled = TRUE;
     elem->get_CurrentIsEnabled(&isEnabled);
 
+    BOOL isOffscreen = FALSE;
+    elem->get_CurrentIsOffscreen(&isOffscreen);
+
     RECT rect = {};
     elem->get_CurrentBoundingRectangle(&rect);
 
     std::ostringstream ss;
     ss << "{";
     ss << R"("name":")" << understudy::escape_json(name) << R"(")";
-    ss << R"(,"type":")" << understudy::escape_json(typeName) << R"(")";
+    ss << R"(,"controlType":")" << understudy::escape_json(typeName) << R"(")";
     if (!className.empty())
         ss << R"(,"className":")" << understudy::escape_json(className) << R"(")";
     if (!automationId.empty())
         ss << R"(,"automationId":")" << understudy::escape_json(automationId) << R"(")";
-    ss << R"(,"enabled":)" << (isEnabled ? "true" : "false");
+    ss << R"(,"isEnabled":)" << (isEnabled ? "true" : "false");
+    ss << R"(,"isOffscreen":)" << (isOffscreen ? "true" : "false");
     ss << R"(,"bounds":{"x":)" << rect.left
        << R"(,"y":)" << rect.top
        << R"(,"width":)" << (rect.right - rect.left)
