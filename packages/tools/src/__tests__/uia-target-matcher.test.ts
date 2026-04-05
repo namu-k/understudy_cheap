@@ -71,7 +71,7 @@ describe("flattenUiaTree", () => {
 			],
 		});
 		const result = flattenUiaTree(root);
-		expect(result).toHaveLength(4);
+		expect(result).toHaveLength(5);
 		expect(result.map((c) => c.name)).toEqual(["Window", "Toolbar", "Save", "Open", "Content"]);
 		// Verify depth
 		expect(result.find((c) => c.name === "Save")!.depth).toBe(2);
@@ -236,10 +236,11 @@ describe("findBestUiaMatch", () => {
 
 	it("prefers shallower nodes on same score", () => {
 		const candidates = [
-			makeCandidate({ name: "Menu", depth: 3 }),
-			makeCandidate({ name: "Menu", depth: 1 }),
+			makeCandidate({ name: "Menu", controlType: "MenuItem", depth: 3 }),
+			makeCandidate({ name: "Menu", controlType: "Button", depth: 1 }),
 		];
 		const result = findBestUiaMatch(candidates, "Menu");
+		expect(result).not.toBeNull();
 		expect(result!.candidate.depth).toBe(1);
 	});
 
