@@ -107,7 +107,7 @@ export function scoreCandidate(
 
 	// 3. Node name contains the target (target is a substring of name)
 	if (nameLower.length > 0 && nameLower.includes(targetLower) && targetLower.length >= 2) {
-		return { score: 0.5, strategy: "target_contains_name" };
+		return { score: 0.65, strategy: "target_contains_name" };
 	}
 
 	// 4. AutomationId match
@@ -124,7 +124,7 @@ export function scoreCandidate(
  * Hard filters applied during flattening: offscreen, zero-area, no identifying info.
  * Additional hard filter here: disabled controls for click-type actions.
  *
- * Scoring: exact name (1.0) > partial name (0.7) > target contains name (0.5) > automationId (0.4)
+ * Scoring: exact name (1.0) > partial name (0.7) > target contains name (0.65) > automationId (0.4)
  * Accept match if score >= 0.6 and no ambiguity among top candidates.
  */
 export function findBestUiaMatch(
