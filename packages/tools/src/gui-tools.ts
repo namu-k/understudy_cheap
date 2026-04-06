@@ -382,11 +382,22 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			},
 		});
 
+		// On Windows, wrap hybrid with UIA-first matching
+		if (process.platform === "win32" && process.env.UNDERSTUDY_UIA_ENABLED !== "0") {
+			const uiaProvider = createWin32UiaGroundingProvider({
+				fallbackProvider: hybridProvider,
+			});
+			return new ComputerUseGuiRuntime({
+				groundingProvider: uiaProvider,
+			});
+		}
+
 		return new ComputerUseGuiRuntime({
 			groundingProvider: hybridProvider,
 		});
 	}
 
+	// Non-hybrid path: explicit OpenAI or standalone UIA
 	const autoApiKey = process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY?.trim();
 	const autoModel = process.env.UNDERSTUDY_GUI_GROUNDING_MODEL?.trim();
 	const explicitOpenAI = autoApiKey
@@ -397,10 +408,9 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			providerName: process.env.UNDERSTUDY_GUI_GROUNDING_PROVIDER?.trim() || undefined,
 		})
 		: undefined;
-	// On Windows, wrap the grounding provider with UIA-first matching.
-	// The provider resolves the helper path lazily on first ground() call,
-	// so this stays synchronous — no await needed here.
-	if (process.platform === "win32" && explicitOpenAI) {
+
+	// On Windows, only expose UIA grounding when there is a real fallback provider.
+	if (process.platform === "win32" && explicitOpenAI && process.env.UNDERSTUDY_UIA_ENABLED !== "0") {
 		const uiaProvider = createWin32UiaGroundingProvider({
 			fallbackProvider: explicitOpenAI,
 		});
