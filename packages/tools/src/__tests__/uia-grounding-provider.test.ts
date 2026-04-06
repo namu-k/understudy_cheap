@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { GuiGroundingProvider, GuiGroundingRequest, GuiGroundingResult } from "@understudy/gui";
 import { Win32UiaGroundingProvider } from "../uia-grounding-provider.js";
 
@@ -8,6 +8,23 @@ import { Win32UiaGroundingProvider } from "../uia-grounding-provider.js";
 
 const mockGetUiaTree = vi.hoisted(() => vi.fn());
 const mockResolveWin32Helper = vi.hoisted(() => vi.fn());
+
+const { mockLog } = vi.hoisted(() => ({
+	mockLog: {
+		debug: vi.fn(),
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+	},
+}));
+
+vi.mock("@understudy/core", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@understudy/core")>();
+	return {
+		...actual,
+		createLogger: vi.fn(() => mockLog),
+	};
+});
 
 vi.mock("@understudy/gui", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@understudy/gui")>();
@@ -230,4 +247,122 @@ describe("Win32UiaGroundingProvider", () => {
 
 		expect(result!.provider).toBe("openai");
 	});
+
+	// --- Logging tests (Task 2) ---
+
+	it("logs debug when UIA match is found", async () => {
+		mockGetUiaTree.mockResolvedValue(
+			makeUiaTreeRoot([makeUiaButton("Save")]),
+        );
+
+		const provider = createProvider();
+        await provider.ground(makeRequest({ target: "Save" }));
+
+        expect(mockLog.debug).toHaveBeenCalledWith(
+            "UIA match found",
+            expect.objectContaining({ strategy: "exact_name" }),
+        );
+    });
+
+    it("logs warn when UIA tree fetch fails", async () => {
+        mockGetUiaTree.mockRejectedValue(new Error("COM error"));
+
+        const fallback: GuiGroundingProvider = {
+            ground: vi.fn().mockResolvedValue(undefined),
+        };
+        const provider = new Win32UiaGroundingProvider({
+            fallbackProvider: fallback,
+        });
+        await provider.ground(makeRequest());
+
+        expect(mockLog.warn).toHaveBeenCalledWith(
+            "UIA tree fetch failed, falling back to screenshot",
+            expect.objectContaining({ error: expect.stringContaining("COM error") }),
+        );
+    });
+
+    // --- Retry tests (Task 3) ---
+
+    it("retries helper resolution after initial failure", async () => {
+        mockResolveWin32Helper.mockRejectedValueOnce(new Error("Helper not found"));
+        mockResolveWin32Helper.mockResolvedValue("/tmp/helper.exe");
+        mockGetUiaTree.mockResolvedValue(
+            makeUiaTreeRoot([makeUiaButton("Save")]),
+        );
+
+        const fallback: GuiGroundingProvider = {
+            ground: vi.fn().mockResolvedValue(undefined),
+        };
+        const provider = new Win32UiaGroundingProvider({
+            fallbackProvider: fallback,
+        });
+
+        // First ground() — helper not found, falls back
+        const result1 = await provider.ground(makeRequest());
+        expect(result1).toBeUndefined();
+
+        // Second ground() — helper resolves, UIA match succeeds
+        const result2 = await provider.ground(makeRequest({ target: "Save" }));
+        expect(result2).not.toBeUndefined();
+        expect(result2!.provider).toContain("win32-uia");
+    });
+
+    // --- Optional fallback + env-var config (Task 4) ---
+
+    it("works without fallback provider (UIA-only mode)", async () => {
+        mockGetUiaTree.mockResolvedValue(
+            makeUiaTreeRoot([makeUiaButton("Save")]),
+        );
+
+        const provider = new Win32UiaGroundingProvider({});
+        const result = await provider.ground(makeRequest({ target: "Save" }));
+
+        expect(result).not.toBeUndefined();
+        expect(result!.provider).toContain("win32-uia");
+    });
+
+    it("returns undefined when UIA-only mode has no match", async () => {
+        mockGetUiaTree.mockResolvedValue(
+            makeUiaTreeRoot([makeUiaButton("Open")]),
+        );
+
+        const provider = new Win32UiaGroundingProvider({});
+        const result = await provider.ground(makeRequest({ target: "Save" }));
+
+        expect(result).toBeUndefined();
+    });
+
+    it("reads config from env vars", async () => {
+        const originalDepth = process.env.UNDERSTUDY_UIA_MAX_DEPTH;
+        const originalTimeout = process.env.UNDERSTUDY_UIA_TIMEOUT_MS;
+        process.env.UNDERSTUDY_UIA_MAX_DEPTH = "5";
+        process.env.UNDERSTUDY_UIA_TIMEOUT_MS = "500";
+
+        mockGetUiaTree.mockResolvedValue(
+            makeUiaTreeRoot([makeUiaButton("Save")]),
+        );
+
+        try {
+            const provider = createProvider();
+            await provider.ground(makeRequest({ target: "Save" }));
+
+            expect(mockGetUiaTree).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    maxDepth: 5,
+                    timeoutMs: 500,
+                }),
+            );
+        } finally {
+            if (originalDepth !== undefined) {
+                process.env.UNDERSTUDY_UIA_MAX_DEPTH = originalDepth;
+            } else {
+                delete process.env.UNDERSTUDY_UIA_MAX_DEPTH;
+            }
+            if (originalTimeout !== undefined) {
+                process.env.UNDERSTUDY_UIA_TIMEOUT_MS = originalTimeout;
+            } else {
+                delete process.env.UNDERSTUDY_UIA_TIMEOUT_MS;
+            }
+        }
+    });
 });

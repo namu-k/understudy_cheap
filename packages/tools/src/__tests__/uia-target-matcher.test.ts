@@ -77,7 +77,7 @@ describe("flattenUiaTree", () => {
 		expect(result.find((c) => c.name === "Save")!.depth).toBe(2);
 	});
 
-	it("respects maxDepth", () => {
+	it("respects maxDepth (including nodes at the configured depth limit)", () => {
 		const root = makeNode({
 			name: "Root",
 			children: [
@@ -88,6 +88,7 @@ describe("flattenUiaTree", () => {
 				]}),
 			],
 		});
+		// C++ stops descending once the parent is already at maxDepth, so depth 2 is still included.
 		const result = flattenUiaTree(root, 2);
 		expect(result.map((c) => c.name)).toEqual(["Root", "L1", "L2"]);
 	});
@@ -116,10 +117,10 @@ describe("scoreCandidate", () => {
 		expect(result).toEqual({ score: 0.7, strategy: "partial_name" });
 	});
 
-	it("scores target-contains-name at 0.5", () => {
+	it("scores target-contains-name at 0.65", () => {
 		const candidate = makeCandidate({ name: "File Explorer" });
 		const result = scoreCandidate(candidate, "explorer");
-		expect(result).toEqual({ score: 0.5, strategy: "target_contains_name" });
+		expect(result).toEqual({ score: 0.65, strategy: "target_contains_name" });
 	});
 
 	it("scores automationId match at 0.4", () => {
@@ -191,11 +192,22 @@ describe("findBestUiaMatch", () => {
 
 	it("rejects score below 0.6 threshold", () => {
 		const candidates = [
-			makeCandidate({ name: "SaveFile", automationId: "" }),
+			makeCandidate({ automationId: "btnSave" }),
 		];
-		// "SaveFile" contains "save" → target_contains_name → 0.5 < 0.6
-		const result = findBestUiaMatch(candidates, "save");
+		// automationId match → 0.4 < 0.6
+		const result = findBestUiaMatch(candidates, "btnSave");
 		expect(result).toBeNull();
+	});
+
+	it("matches 'Save' target against 'Save As' button via target_contains_name at 0.65", () => {
+		const candidates = [
+			makeCandidate({ name: "Save As" }),
+		];
+		const result = findBestUiaMatch(candidates, "Save");
+		expect(result).not.toBeNull();
+		expect(result!.candidate.name).toBe("Save As");
+		expect(result!.strategy).toBe("target_contains_name");
+		expect(result!.score).toBe(0.65);
 	});
 
 	it("returns null on ambiguity (same name+type, same score)", () => {
