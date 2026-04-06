@@ -210,7 +210,7 @@ struct SerializeState {
     int maxDepth;
     int count;
     int maxCount;
-    bool includeInvisible;
+    bool truncated;
 };
 
 static std::string serialize_element(IUIAutomationElement* elem, int depth, SerializeState& state);
@@ -237,6 +237,7 @@ static std::string serialize_children(IUIAutomationElement* parent, int depth, S
         IUIAutomationElement* child = nullptr;
         if (SUCCEEDED(children->GetElement(i, &child)) && child) {
             if (state.count >= state.maxCount) {
+                state.truncated = true;
                 child->Release();
                 break;
             }
@@ -396,13 +397,14 @@ int cmd_uia_tree(int argc, char* argv[]) {
     state.maxDepth = maxDepth;
     state.count = 0;
     state.maxCount = maxCount;
-    state.includeInvisible = args.flags.count("include-invisible") > 0;
+    state.truncated = false;
 
     std::string treeJson = serialize_element(target, 0, state);
 
     std::ostringstream out;
     out << R"({"depth":)" << maxDepth
         << R"(,"count":)" << state.count
+        << R"(,"truncated":)" << (state.truncated ? "true" : "false")
         << R"(,"tree":)" << treeJson
         << "}";
 
