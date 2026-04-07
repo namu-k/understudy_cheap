@@ -68,7 +68,7 @@ apps/cli           CLI entrypoints, 30+ operator commands
 packages/core      Agent session runtime, config, auth, skills, policies
 packages/gateway   HTTP + WebSocket gateway, session runtime, web surfaces
 packages/gui       Native GUI runtime (macOS + Windows), screenshot grounding, demo recorder
-packages/tools     Built-in tools: browser, web, memory, schedule, GUI, message
+packages/tools     Built-in tools: browser, web, memory, schedule, GUI, message, grounding
 packages/channels  Channel adapters (8 platforms)
 packages/types     Shared TypeScript type definitions
 skills/            47+ built-in skill modules

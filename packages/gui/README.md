@@ -15,12 +15,14 @@ Native GUI runtime for Understudy — screenshot-grounded desktop automation.
 
 | Capability | macOS | Linux | Windows |
 |-----------|:-----:|:-----:|:-------:|
-| Screenshot capture | Yes | Planned | Planned |
-| Native input events | Yes | Planned | Planned |
-| Window enumeration | Yes | Planned | Planned |
-| Demonstration recording | Yes | Planned | Planned |
+| Screenshot capture | Yes | Planned | Yes |
+| Native input events | Yes | Planned | Yes |
+| Window enumeration | Yes | Planned | Yes |
+| Demonstration recording | Yes | Planned | Yes |
+| UIA tree enumeration | — | — | Yes |
+| UIA-based grounding | — | — | Yes |
 
-The type-level abstractions (`GuiActionResult`, `GuiObservation`, `GuiGroundingProvider`) are platform-agnostic. Only the native execution backend is macOS-specific today.
+The type-level abstractions (`GuiActionResult`, `GuiObservation`, `GuiGroundingProvider`) are platform-agnostic. macOS uses Swift compiled at runtime. Windows uses a pre-compiled C++ binary with UIA tree-based grounding as the primary path and screenshot grounding as fallback.
 
 ## Key Files
 
@@ -31,7 +33,9 @@ The type-level abstractions (`GuiActionResult`, `GuiObservation`, `GuiGroundingP
 | `capabilities.ts` | Platform detection and feature flags |
 | `readiness.ts` | Permission and dependency readiness checks |
 | `native-helper.ts` | macOS Swift native helper compilation and invocation |
-| `demonstration-recorder.ts` | Screen recording + event capture for teach flows |
+| `win32-native-helper.ts` | Windows native helper (UIA tree enumeration, screenshot capture, input injection) |
+| `demonstration-recorder.ts` | macOS screen recording + event capture for teach flows |
+| `win32-demonstration-recorder.ts` | Windows demonstration recording |
 
 ## Development
 
