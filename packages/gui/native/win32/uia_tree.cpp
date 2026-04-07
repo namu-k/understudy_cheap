@@ -210,7 +210,7 @@ struct SerializeState {
     int maxDepth;
     int count;
     int maxCount;
-    bool includeInvisible;
+    bool truncated;
 };
 
 static std::string serialize_element(IUIAutomationElement* elem, int depth, SerializeState& state);
@@ -237,6 +237,7 @@ static std::string serialize_children(IUIAutomationElement* parent, int depth, S
         IUIAutomationElement* child = nullptr;
         if (SUCCEEDED(children->GetElement(i, &child)) && child) {
             if (state.count >= state.maxCount) {
+                state.truncated = true;
                 child->Release();
                 break;
             }
@@ -276,18 +277,22 @@ static std::string serialize_element(IUIAutomationElement* elem, int depth, Seri
     BOOL isEnabled = TRUE;
     elem->get_CurrentIsEnabled(&isEnabled);
 
+    BOOL isOffscreen = FALSE;
+    elem->get_CurrentIsOffscreen(&isOffscreen);
+
     RECT rect = {};
     elem->get_CurrentBoundingRectangle(&rect);
 
     std::ostringstream ss;
     ss << "{";
     ss << R"("name":")" << understudy::escape_json(name) << R"(")";
-    ss << R"(,"type":")" << understudy::escape_json(typeName) << R"(")";
+    ss << R"(,"controlType":")" << understudy::escape_json(typeName) << R"(")";
     if (!className.empty())
         ss << R"(,"className":")" << understudy::escape_json(className) << R"(")";
     if (!automationId.empty())
         ss << R"(,"automationId":")" << understudy::escape_json(automationId) << R"(")";
-    ss << R"(,"enabled":)" << (isEnabled ? "true" : "false");
+    ss << R"(,"isEnabled":)" << (isEnabled ? "true" : "false");
+    ss << R"(,"isOffscreen":)" << (isOffscreen ? "true" : "false");
     ss << R"(,"bounds":{"x":)" << rect.left
        << R"(,"y":)" << rect.top
        << R"(,"width":)" << (rect.right - rect.left)
@@ -392,13 +397,14 @@ int cmd_uia_tree(int argc, char* argv[]) {
     state.maxDepth = maxDepth;
     state.count = 0;
     state.maxCount = maxCount;
-    state.includeInvisible = args.flags.count("include-invisible") > 0;
+    state.truncated = false;
 
     std::string treeJson = serialize_element(target, 0, state);
 
     std::ostringstream out;
     out << R"({"depth":)" << maxDepth
         << R"(,"count":)" << state.count
+        << R"(,"truncated":)" << (state.truncated ? "true" : "false")
         << R"(,"tree":)" << treeJson
         << "}";
 

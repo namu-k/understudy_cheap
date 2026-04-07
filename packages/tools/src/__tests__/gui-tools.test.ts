@@ -317,6 +317,49 @@ describe("gui tool wrappers", () => {
 		}
 	});
 
+	it("does not advertise grounding on Windows without a configured backend", () => {
+		const originalPlatform = process.platform;
+		const originalMode = process.env.UNDERSTUDY_GROUNDING_MODE;
+		const originalApiKey = process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY;
+		const originalModel = process.env.UNDERSTUDY_GUI_GROUNDING_MODEL;
+		const originalEnabled = process.env.UNDERSTUDY_UIA_ENABLED;
+
+		Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+		delete process.env.UNDERSTUDY_GROUNDING_MODE;
+		delete process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY;
+		delete process.env.UNDERSTUDY_GUI_GROUNDING_MODEL;
+		process.env.UNDERSTUDY_UIA_ENABLED = "1";
+
+		setDefaultGuiRuntime(undefined);
+		try {
+			const runtime = createDefaultGuiRuntime();
+			expect(runtime.describeCapabilities("win32").groundingAvailable).toBe(false);
+		} finally {
+			Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
+			if (originalMode === undefined) {
+				delete process.env.UNDERSTUDY_GROUNDING_MODE;
+			} else {
+				process.env.UNDERSTUDY_GROUNDING_MODE = originalMode;
+			}
+			if (originalApiKey === undefined) {
+				delete process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY;
+			} else {
+				process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY = originalApiKey;
+			}
+			if (originalModel === undefined) {
+				delete process.env.UNDERSTUDY_GUI_GROUNDING_MODEL;
+			} else {
+				process.env.UNDERSTUDY_GUI_GROUNDING_MODEL = originalModel;
+			}
+			if (originalEnabled === undefined) {
+				delete process.env.UNDERSTUDY_UIA_ENABLED;
+			} else {
+				process.env.UNDERSTUDY_UIA_ENABLED = originalEnabled;
+			}
+			setDefaultGuiRuntime(undefined);
+		}
+	});
+
 	it("preserves GUI action evidence", async () => {
 		const runtime = {
 			click: vi.fn().mockResolvedValue({

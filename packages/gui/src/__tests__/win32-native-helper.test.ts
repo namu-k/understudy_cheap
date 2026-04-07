@@ -415,7 +415,8 @@ describe("win32-native-helper", () => {
 					expect(args).toContain("notepad");
 					expect(args).toContain("--max-depth");
 					expect(args).toContain("5");
-					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+					const envelope = { depth: 5, count: 2, truncated: false, tree };
+					cb(null, JSON.stringify({ status: "ok", data: envelope }), "");
 				},
 			);
 
@@ -442,7 +443,8 @@ describe("win32-native-helper", () => {
 				(_cmd: string, args: string[], _opts: unknown, cb: Function) => {
 					expect(args).toContain("--hwnd");
 					expect(args).toContain("12345");
-					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+					const envelope = { depth: 8, count: 1, truncated: false, tree };
+					cb(null, JSON.stringify({ status: "ok", data: envelope }), "");
 				},
 			);
 
@@ -468,7 +470,8 @@ describe("win32-native-helper", () => {
 				(_cmd: string, args: string[], _opts: unknown, cb: Function) => {
 					expect(args).toContain("--title");
 					expect(args).toContain("Untitled");
-					cb(null, JSON.stringify({ status: "ok", data: tree }), "");
+					const envelope = { depth: 8, count: 1, truncated: false, tree };
+					cb(null, JSON.stringify({ status: "ok", data: envelope }), "");
 				},
 			);
 
@@ -481,10 +484,12 @@ describe("win32-native-helper", () => {
 		});
 
 		it("uses 30s default timeout for large trees", async () => {
+			const tree = { name: "root", controlType: "Pane", automationId: "", className: "", bounds: { x: 0, y: 0, width: 0, height: 0 }, isEnabled: true, isOffscreen: false };
 			mocks.execFile.mockImplementation(
 				(_cmd: string, _args: string[], opts: { timeout: number }, cb: Function) => {
 					expect(opts.timeout).toBe(30_000);
-					cb(null, JSON.stringify({ status: "ok", data: { name: "root", controlType: "Pane", automationId: "", className: "", bounds: { x: 0, y: 0, width: 0, height: 0 }, isEnabled: true, isOffscreen: false } }), "");
+					const envelope = { depth: 8, count: 1, truncated: false, tree };
+					cb(null, JSON.stringify({ status: "ok", data: envelope }), "");
 				},
 			);
 

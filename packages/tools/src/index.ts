@@ -23,6 +23,9 @@ export {
 	type ParsedGroundingValidationResponse,
 	type SharedModelLoopGroundingProviderOptions,
 } from "./response-grounding-provider.js";
+export { Win32UiaGroundingProvider, createWin32UiaGroundingProvider } from "./uia-grounding-provider.js";
+export { flattenUiaTree, findBestUiaMatch, scoreCandidate } from "./uia-target-matcher.js";
+export type { FlatUiaCandidate, UiaMatchResult } from "./uia-target-matcher.js";
 export { createGroundingGuideImage } from "./grounding-guide-image.js";
 export { createGroundingSimulationImage } from "./grounding-simulation-image.js";
 export { loadImageSource } from "./image-shared.js";

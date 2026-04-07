@@ -10,6 +10,7 @@ import {
 } from "@understudy/gui";
 import { asString, asNumber, asBoolean } from "@understudy/core";
 import { createOpenAIGroundingProvider } from "./openai-grounding-provider.js";
+import { createWin32UiaGroundingProvider } from "./uia-grounding-provider.js";
 import { createHybridGroundingProvider, createOcrEngine, GroundingCacheStore } from "./grounding/index.js";
 import { textResult } from "./bridge/bridge-rpc.js";
 import { homedir } from "node:os";
@@ -381,11 +382,22 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			},
 		});
 
+		// On Windows, wrap hybrid with UIA-first matching
+		if (process.platform === "win32" && process.env.UNDERSTUDY_UIA_ENABLED !== "0") {
+			const uiaProvider = createWin32UiaGroundingProvider({
+				fallbackProvider: hybridProvider,
+			});
+			return new ComputerUseGuiRuntime({
+				groundingProvider: uiaProvider,
+			});
+		}
+
 		return new ComputerUseGuiRuntime({
 			groundingProvider: hybridProvider,
 		});
 	}
 
+	// Non-hybrid path: explicit OpenAI or standalone UIA
 	const autoApiKey = process.env.UNDERSTUDY_GUI_GROUNDING_API_KEY?.trim();
 	const autoModel = process.env.UNDERSTUDY_GUI_GROUNDING_MODEL?.trim();
 	const explicitOpenAI = autoApiKey
@@ -396,6 +408,17 @@ export function createDefaultGuiRuntime(): ComputerUseGuiRuntime {
 			providerName: process.env.UNDERSTUDY_GUI_GROUNDING_PROVIDER?.trim() || undefined,
 		})
 		: undefined;
+
+	// On Windows, only expose UIA grounding when there is a real fallback provider.
+	if (process.platform === "win32" && explicitOpenAI && process.env.UNDERSTUDY_UIA_ENABLED !== "0") {
+		const uiaProvider = createWin32UiaGroundingProvider({
+			fallbackProvider: explicitOpenAI,
+		});
+		return new ComputerUseGuiRuntime({
+			groundingProvider: uiaProvider,
+		});
+	}
+
 	return new ComputerUseGuiRuntime({
 		groundingProvider: explicitOpenAI,
 	});

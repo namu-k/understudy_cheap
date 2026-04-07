@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.3] - 2026-04-07
+
+Win32 UIA grounding pipeline: accessibility-tree-based target matching for GUI actions, with graceful fallback to screenshot grounding.
+
+### Added
+
+- `Win32UiaGroundingProvider`: tries UIA tree matching first, falls back to screenshot-based grounding on failure or no-match.
+- `flattenUiaTree` / `scoreCandidate` / `findBestUiaMatch`: accessibility-tree flattening, multi-signal scoring, and ambiguity-rejecting best-match selection.
+- Configurable depth and timeout via `UNDERSTUDY_UIA_MAX_DEPTH` and `UNDERSTUDY_UIA_TIMEOUT_MS` environment variables.
+- `UNDERSTUDY_UIA_ENABLED=0` opt-out to skip UIA grounding entirely.
+- Structured debug/warn logging throughout the UIA grounding path (`grounding:uia` logger).
+- UIA provider wraps the hybrid (multi-round) grounding path on Windows, not just the single-shot path.
+- C++ `uia_tree.cpp`: `truncated` field in envelope JSON and `SerializeState` to signal when `--max-count` was hit.
+- 39 new unit tests across `uia-grounding-provider.test.ts`, `uia-target-matcher.test.ts`, and `gui-tools.test.ts`.
+
+### Fixed
+
+- C++ `SerializeState`: replaced dead `includeInvisible` field with working `truncated` flag; envelope now reports truncation status.
+- `helperPathPromise` caching now resets on failure so retries work after transient errors.
+- `target_contains_name` scoring raised from 0.5 to 0.65 so substring matches clear the 0.6 acceptance threshold.
+- `fallbackProvider` made optional — provider returns `undefined` instead of crashing when no fallback is configured.
+
 ## [0.3.2] - 2026-04-04
 
 Add uia-tree subcommand to the Win32 native helper binary for UI Automation accessibility tree enumeration.

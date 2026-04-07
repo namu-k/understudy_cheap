@@ -248,5 +248,15 @@ export async function getUiaTree(params: {
 		args,
 		timeoutMs: params.timeoutMs ?? 30_000,
 	});
-	return result as Win32UiaTreeNode;
+	// C++ returns {depth, count, truncated, tree} envelope — extract the actual tree node
+	const envelope = result as {
+		depth: number;
+		count: number;
+		truncated: boolean;
+		tree: Win32UiaTreeNode;
+	};
+	if (envelope.truncated) {
+		console.warn(`UIA tree truncated at ${envelope.count} elements (maxCount reached)`);
+	}
+	return envelope.tree;
 }
