@@ -43,6 +43,8 @@ interface TesseractRecognizeData {
 interface TesseractWorkerHandle {
 	recognize(image: Buffer): Promise<{ data: TesseractRecognizeData }>;
 	terminate(): Promise<void>;
+	/** Tesseract.js workers extend EventEmitter — used to suppress post-termination errors. */
+	on?(event: string, handler: (...args: unknown[]) => void): unknown;
 }
 
 export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEngine {
@@ -54,6 +56,15 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 	let workerPromise: Promise<TesseractWorkerHandle> | null = null;
 	let jobCount = 0;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+	/** Terminate a worker and swallow any post-termination error events. */
+	async function safeTerminate(w: TesseractWorkerHandle): Promise<void> {
+		// Tesseract.js workers emit "error" events asynchronously after
+		// terminate() is called. Attach a no-op listener before terminating
+		// to prevent unhandled-rejection noise in tests and at runtime.
+		w.on?.("error", () => {});
+		await w.terminate().catch(() => {});
+	}
 
 	function clearIdle() {
 		if (idleTimer) {
@@ -67,7 +78,7 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 		idleTimer = setTimeout(async () => {
 			if (worker) {
 				log.debug("Terminating idle Tesseract worker");
-				await worker.terminate().catch(() => {});
+				await safeTerminate(worker);
 				worker = null;
 				workerPromise = null;
 				jobCount = 0;
@@ -79,7 +90,7 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 		// Re-create after max jobs (Tesseract.js official guidance for memory leak prevention)
 		if (worker && jobCount >= WORKER_MAX_JOBS) {
 			log.debug("Re-creating Tesseract worker after max jobs", { jobCount });
-			await worker.terminate().catch(() => {});
+			await safeTerminate(worker);
 			worker = null;
 			workerPromise = null;
 			jobCount = 0;
@@ -138,7 +149,7 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 				// broken state. Terminate and reset so the next call creates a
 				// fresh worker instead of reusing a stale handle.
 				if (worker) {
-					await worker.terminate().catch(() => {});
+					await safeTerminate(worker);
 					worker = null;
 				}
 				workerPromise = null;
@@ -150,7 +161,7 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 		async terminate() {
 			clearIdle();
 			if (worker) {
-				await worker.terminate().catch(() => {});
+				await safeTerminate(worker);
 				worker = null;
 			}
 			workerPromise = null;
