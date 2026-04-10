@@ -49,7 +49,7 @@ describe("cli bootstrap entry", () => {
 
 		await import("./bin.js");
 
-		expect(observedAgentDir).toBe("/tmp/custom-engine-agent");
-		expect(process.env.PI_CODING_AGENT_DIR).toBe("/tmp/custom-engine-agent");
+		expect(toPosix(observedAgentDir ?? "")).toBe("/tmp/custom-engine-agent");
+		expect(toPosix(process.env.PI_CODING_AGENT_DIR ?? "")).toBe("/tmp/custom-engine-agent");
 	});
 });
