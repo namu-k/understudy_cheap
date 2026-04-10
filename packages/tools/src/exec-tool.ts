@@ -76,7 +76,13 @@ type ExecOutcome = {
 };
 
 function resolveShellExecutable(): string {
-	return process.env.SHELL?.trim() || "/bin/sh";
+	if (process.env.SHELL?.trim()) return process.env.SHELL.trim();
+	if (process.platform === "win32") return process.env.COMSPEC || "cmd.exe";
+	return "/bin/sh";
+}
+
+export function shellArgs(shell: string, command: string): [string, string] {
+	return [(/cmd\.exe$/i.test(shell) ? "/c" : "-c"), command];
 }
 
 function resolveYieldMs(params: ExecToolParams): number {
@@ -222,7 +228,8 @@ export function createExecTool(): AgentTool<typeof ExecToolSchema> {
 				);
 			}
 
-			const child = spawn(resolveShellExecutable(), ["-c", command], {
+			const shell = resolveShellExecutable();
+			const child = spawn(shell, shellArgs(shell, command), {
 				cwd: params.workdir?.trim() || process.cwd(),
 				env: {
 					...process.env,
