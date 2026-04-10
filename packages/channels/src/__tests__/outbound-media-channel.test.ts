@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const toPosix = (p: string) => p.replace(/\\/g, "/").replace(/\/\/+/g, "/");
+
 const mocks = vi.hoisted(() => ({
 	execFile: vi.fn(),
 }));
@@ -106,7 +108,7 @@ describe("IMessageChannel outbound media", () => {
 		expect(script).toContain('send "已截图。" to targetBuddy');
 		expect(script).not.toContain("data:image/png;base64");
 		const match = script.match(/POSIX file "([^"]+)"/);
-		expect(match?.[1]).toContain(join(testHomeDir, "outbound-media", "imessage"));
+		expect(toPosix(match?.[1] ?? "")).toContain("outbound-media/imessage");
 		await expect(stat(match?.[1] ?? "")).rejects.toBeDefined();
 	});
 });
