@@ -68,4 +68,16 @@ describe("createExecTool shell invocation", () => {
 			process.env.SHELL = origShell;
 		}
 	});
+
+	it("selects /c for cmd variants and -c for everything else", async () => {
+		const { shellArgs } = await import("../exec-tool.js");
+		expect(shellArgs("cmd.exe", "echo hi")).toEqual(["/c", "echo hi"]);
+		expect(shellArgs("CMD.EXE", "echo hi")).toEqual(["/c", "echo hi"]);
+		expect(shellArgs("cmd", "echo hi")).toEqual(["/c", "echo hi"]);
+		expect(shellArgs("C:\\Windows\\System32\\cmd.exe", "echo hi")).toEqual(["/c", "echo hi"]);
+		expect(shellArgs("/bin/sh", "echo hi")).toEqual(["-c", "echo hi"]);
+		expect(shellArgs("/bin/bash", "echo hi")).toEqual(["-c", "echo hi"]);
+		expect(shellArgs("powershell.exe", "echo hi")).toEqual(["-c", "echo hi"]);
+		expect(shellArgs("pwsh", "echo hi")).toEqual(["-c", "echo hi"]);
+	});
 });

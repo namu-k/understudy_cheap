@@ -82,7 +82,7 @@ function resolveShellExecutable(): string {
 }
 
 export function shellArgs(shell: string, command: string): [string, string] {
-	return [(/cmd\.exe$/i.test(shell) ? "/c" : "-c"), command];
+	return [/cmd(\.exe)?$/i.test(shell) ? "/c" : "-c", command];
 }
 
 function resolveYieldMs(params: ExecToolParams): number {

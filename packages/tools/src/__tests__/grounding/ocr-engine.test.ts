@@ -1,29 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createOcrEngine, createTesseractOcrEngine } from "../../grounding/ocr-engine.js";
 import { createVisionOcrEngine } from "../../grounding/vision-ocr-helper.js";
-
-// Tesseract.js workers emit asynchronous errors from internal Node.js Worker
-// threads even after terminate(). These "uncaught exceptions" fire via
-// process unhandledRejection / uncaughtException and are noisy but harmless.
-// Install a global suppression for the duration of this test file.
-const swallowTesseractWorkerErrors = (err: unknown) => {
-	const msg = err instanceof Error ? err.message : String(err);
-	if (/Error attempting to read image|pixRead|pixReadStream|Image file/i.test(msg)) {
-		return;
-	}
-	// Not a tesseract noise error — re-throw
-	throw err;
-};
-
-beforeAll(() => {
-	process.on("unhandledRejection", swallowTesseractWorkerErrors);
-	process.on("uncaughtException", swallowTesseractWorkerErrors);
-});
-
-afterAll(() => {
-	process.removeListener("unhandledRejection", swallowTesseractWorkerErrors);
-	process.removeListener("uncaughtException", swallowTesseractWorkerErrors);
-});
 
 describe("createOcrEngine", () => {
 	it("returns an OcrEngine with a recognize method", () => {

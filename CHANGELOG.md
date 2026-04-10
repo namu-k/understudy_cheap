@@ -10,8 +10,8 @@ Windows tests and lint now pass clean. The full test suite runs green on Win32 a
 
 ### Fixed
 
-- Shell execution finds `cmd.exe` on Windows via `COMSPEC` and passes the right flag (`/c` vs `-c`). Bash and PowerShell both work now.
-- OCR engine cleans up tesseract.js workers without leaving noisy post-termination errors in the console.
+- Shell execution finds `cmd.exe` on Windows via `COMSPEC` and passes the right flag (`/c` vs `-c`). Unix shells, PowerShell, and Git Bash all use `-c`; `cmd`/`cmd.exe` uses `/c`.
+- OCR engine passes `errorHandler` to tesseract.js `createWorker` to suppress uncaught errors from internal worker threads. Idle timer no longer leaks on file-read failure.
 - Path assertions normalize backslashes across all test files so the same assertions pass on both platforms.
 - Tests that require Unix-only tools (ffmpeg, real shell execution) skip gracefully on Windows instead of failing.
 - Strict equality (`===`/`!==`) replaces loose `==`/`!=` null checks across browser tool, UIA grounding provider, and chat gateway session.

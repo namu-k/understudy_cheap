@@ -43,8 +43,6 @@ interface TesseractRecognizeData {
 interface TesseractWorkerHandle {
 	recognize(image: Buffer): Promise<{ data: TesseractRecognizeData }>;
 	terminate(): Promise<void>;
-	/** Tesseract.js workers extend EventEmitter — used to suppress post-termination errors. */
-	on?(event: string, handler: (...args: unknown[]) => void): unknown;
 }
 
 export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEngine {
@@ -57,12 +55,8 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 	let jobCount = 0;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-	/** Terminate a worker and swallow any post-termination error events. */
+	/** Terminate a worker and swallow the rejection if it fails. */
 	async function safeTerminate(w: TesseractWorkerHandle): Promise<void> {
-		// Tesseract.js workers emit "error" events asynchronously after
-		// terminate() is called. Attach a no-op listener before terminating
-		// to prevent unhandled-rejection noise in tests and at runtime.
-		w.on?.("error", () => {});
 		await w.terminate().catch(() => {});
 	}
 
@@ -102,7 +96,9 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 		workerPromise = (async () => {
 			try {
 				const { createWorker, OEM } = await import("tesseract.js");
-				const w = await createWorker(langString, OEM.LSTM_ONLY);
+				const w = await createWorker(langString, OEM.LSTM_ONLY, {
+					errorHandler: () => {}, // suppress uncaught errors from internal worker threads
+				});
 				worker = w as unknown as TesseractWorkerHandle;
 				log.debug("Tesseract worker created", { languages: langString });
 				return worker;
@@ -117,7 +113,6 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 
 	return {
 		async recognize(imagePath: string): Promise<OcrResult[]> {
-			clearIdle();
 			let imageBuffer: Buffer;
 			try {
 				imageBuffer = await readFile(imagePath);
@@ -126,6 +121,7 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 				log.warn("OCR image read failed", { error: String(err) });
 				return [];
 			}
+			clearIdle();
 			try {
 				const w = await getWorker();
 				const { data } = await w.recognize(imageBuffer);
