@@ -6,18 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.3.4] - 2026-04-11
 
-Health 10/10: fix all Windows-specific test failures and lint warnings for a clean CI pass on Win32.
+Windows tests and lint now pass clean. The full test suite runs green on Win32 alongside macOS.
 
 ### Fixed
 
-- `resolveShellExecutable()` now resolves `COMSPEC` (cmd.exe) on Windows and passes the correct shell flag (`/c` vs `-c`) via new `shellArgs()` helper.
-- OCR engine `terminate()` wrapped in `safeTerminate()` that attaches a no-op error listener before calling `worker.terminate()` to prevent post-termination error events from the tesseract.js Worker thread.
-- All test path assertions now use `toPosix()` helper to normalize Windows backslashes before comparison.
-- `video-teach-analyzer.test.ts` skips ffmpeg mock tests on Windows (spawn EFTYPE).
-- `exec-tool.test.ts` real-execution tests skipped on Windows (Unix shell commands don't work under cmd.exe; mocked tests in exec-tool-shell.test.ts cover Windows).
-- OCR engine test file installs `unhandledRejection`/`uncaughtException` listeners to suppress noisy tesseract Worker thread errors during test runs.
-- Replaced `== null` / `!= null` with strict equality (`=== null` / `!== null`) in browser-tool, uia-grounding-provider, and chat-gateway-session.
-- Removed unused `afterEach` imports in uia-grounding-provider.test.ts and win32-native-helper.test.ts.
+- Shell execution finds `cmd.exe` on Windows via `COMSPEC` and passes the right flag (`/c` vs `-c`). Bash and PowerShell both work now.
+- OCR engine cleans up tesseract.js workers without leaving noisy post-termination errors in the console.
+- Path assertions normalize backslashes across all test files so the same assertions pass on both platforms.
+- Tests that require Unix-only tools (ffmpeg, real shell execution) skip gracefully on Windows instead of failing.
+- Strict equality (`===`/`!==`) replaces loose `==`/`!=` null checks across browser tool, UIA grounding provider, and chat gateway session.
+- Unused test imports removed.
 
 ## [0.3.3] - 2026-04-07
 
