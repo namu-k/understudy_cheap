@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const mocks = vi.hoisted(() => ({
 	loadConfig: vi.fn(),
 	createUnderstudySession: vi.fn(),
@@ -311,20 +314,20 @@ describe("runChatCommand", () => {
 		expect(log.mock.calls.flat().join("\n")).toContain("Using gateway session: gateway-session-1");
 		expect(mocks.createUnderstudySession).toHaveBeenCalledWith(expect.objectContaining({
 			configPath: "/tmp/understudy/config.json5",
-			cwd: "/tmp/project",
 			channel: "tui",
 			thinkingLevel: "high",
 			extraTools: [{ name: "mock-tool" }],
 			sessionManager: expect.any(Object),
 		}));
+		expect(toPosix((mocks.createUnderstudySession.mock.calls[0]![0] as any).cwd)).toBe("/tmp/project");
 		expect(mocks.createGatewayBackedInteractiveSession).toHaveBeenCalledWith(expect.objectContaining({
 			gatewayUrl: "http://127.0.0.1:23333",
-			cwd: "/tmp/project",
 			forceNew: false,
 			configOverride: {
 				defaultThinkingLevel: "high",
 			},
 		}));
+		expect(toPosix((mocks.createGatewayBackedInteractiveSession.mock.calls[0]![0] as any).cwd)).toBe("/tmp/project");
 		expect(mocks.createConfiguredRuntimeToolset).toHaveBeenCalledWith(expect.objectContaining({
 			scheduleService: expect.any(Object),
 		}));

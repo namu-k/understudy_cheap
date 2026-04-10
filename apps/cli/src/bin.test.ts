@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const originalEnv = { ...process.env };
 
 describe("cli bootstrap entry", () => {
@@ -29,8 +32,8 @@ describe("cli bootstrap entry", () => {
 
 		await import("./bin.js");
 
-		expect(observedAgentDir).toBe("/tmp/understudy-home/agent");
-		expect(process.env.PI_CODING_AGENT_DIR).toBe("/tmp/understudy-home/agent");
+		expect(toPosix(observedAgentDir ?? "")).toBe("/tmp/understudy-home/agent");
+		expect(toPosix(process.env.PI_CODING_AGENT_DIR ?? "")).toBe("/tmp/understudy-home/agent");
 	});
 
 	it("keeps an explicit PI_CODING_AGENT_DIR when one is already provided", async () => {

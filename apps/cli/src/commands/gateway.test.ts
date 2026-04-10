@@ -19,6 +19,9 @@ import {
 import { createGatewayPluginRuntime } from "./gateway-plugin-runtime.js";
 import { extractLatestAssistantUsage } from "./gateway-usage.js";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const originalUnderstudyHome = process.env.UNDERSTUDY_HOME;
 const tempDirs: string[] = [];
 
@@ -211,7 +214,7 @@ describe("resolveMemoryDbPath", () => {
 	it("uses UNDERSTUDY_HOME for default memory path", () => {
 		process.env.UNDERSTUDY_HOME = "/tmp/understudy-home";
 		const config = createConfig();
-		expect(resolveMemoryDbPath(config)).toBe("/tmp/understudy-home/memory.db");
+		expect(toPosix(resolveMemoryDbPath(config))).toBe("/tmp/understudy-home/memory.db");
 	});
 });
 
@@ -244,7 +247,7 @@ describe("resolveGatewayWorkspaceDir", () => {
 				cwd: undefined,
 			},
 		});
-		expect(resolveGatewayWorkspaceDir(config)).toBe("/tmp/understudy-home/agents/main/workspace");
+		expect(toPosix(resolveGatewayWorkspaceDir(config))).toBe("/tmp/understudy-home/agents/main/workspace");
 	});
 
 	it("creates the resolved workspace directory before web sessions use it", async () => {

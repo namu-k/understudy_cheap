@@ -11,6 +11,9 @@ import {
 // @ts-expect-error test-only import of raw extension asset module
 import { persistBundledInstallDefaults } from "../../../../assets/chrome-extension/install-config.js";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const tempDirs: string[] = [];
 const testGlobal = globalThis as typeof globalThis & {
 	chrome?: any;
@@ -66,10 +69,10 @@ describe("browser extension install", () => {
 		expect(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
 		})).toBe("/Users/test/Downloads/Understudy Chrome Extension");
-		expect(resolveBrowserExtensionInstallDir({
+		expect(toPosix(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
 			target: "managed",
-		})).toContain(".understudy/browser/chrome-extension");
+		}))).toContain(".understudy/browser/chrome-extension");
 		expect(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
 			target: "/tmp/custom-extension",
