@@ -124,7 +124,7 @@ describe("video teach analyzer", () => {
 		expect(await readFile(pack.keyframes[0]!.path)).toBeTruthy();
 	});
 
-	it("retries slightly earlier when ffmpeg exits without producing a frame", async () => {
+	(process.platform === "win32" ? it.skip : it)("retries slightly earlier when ffmpeg exits without producing a frame", async () => {
 		const dir = await createTempDir("understudy-video-teach-");
 		const fixturePath = join(dir, "fixture.png");
 		const callLogPath = join(dir, "ffmpeg-calls.log");

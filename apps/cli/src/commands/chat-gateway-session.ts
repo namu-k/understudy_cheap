@@ -879,7 +879,7 @@ export async function createGatewayBackedInteractiveSession(
 			const queuedBehavior =
 				behavior === "steer" || behavior === "followUp"
 					? behavior
-					: behavior == null
+					: behavior === null || behavior === undefined
 						? "followUp"
 						: undefined;
 			if (!queuedBehavior) {

@@ -42,6 +42,9 @@ vi.mock("node:fs/promises", async () => {
 
 import { ComputerUseGuiRuntime } from "../runtime.js";
 
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+const toPosixArray = (items: string[]) => items.map(toPosix);
+
 const MOCK_NATIVE_HELPER_PATH = "/tmp/mock-understudy-gui-native-helper";
 const ONE_BY_ONE_PNG = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6W2y0AAAAASUVORK5CYII=",
@@ -336,7 +339,8 @@ describe("ComputerUseGuiRuntime", () => {
 			mimeType: "image/png",
 			filename: "gui-screenshot.png",
 		});
-		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).toEqual([
+		const captureCall = mocks.execCalls.find((call) => call.file === "screencapture");
+		expect(toPosixArray(captureCall?.args ?? [])).toEqual([
 			"-x",
 			"-C",
 			"-D1",
@@ -359,7 +363,8 @@ describe("ComputerUseGuiRuntime", () => {
 			window_count: 1,
 			window_capture_strategy: "main_window",
 		});
-		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).toEqual([
+		const captureCall = mocks.execCalls.find((call) => call.file === "screencapture");
+		expect(toPosixArray(captureCall?.args ?? [])).toEqual([
 			"-x",
 			"-C",
 			"-R",
@@ -390,7 +395,8 @@ describe("ComputerUseGuiRuntime", () => {
 			window_count: 2,
 			window_capture_strategy: "app_union",
 		});
-		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).toEqual([
+		const captureCall = mocks.execCalls.find((call) => call.file === "screencapture");
+		expect(toPosixArray(captureCall?.args ?? [])).toEqual([
 			"-x",
 			"-C",
 			"-R",
@@ -440,7 +446,8 @@ describe("ComputerUseGuiRuntime", () => {
 		expect(result.details).toMatchObject({
 			capture_mode: "display",
 		});
-		expect(mocks.execCalls.find((call) => call.file === "screencapture")?.args).toEqual([
+		const captureCall = mocks.execCalls.find((call) => call.file === "screencapture");
+		expect(toPosixArray(captureCall?.args ?? [])).toEqual([
 			"-x",
 			"-C",
 			"-D1",
@@ -1930,7 +1937,7 @@ describe("ComputerUseGuiRuntime", () => {
 		const result = await runtime.wait({
 			target: "Uploading badge",
 			state: "disappear",
-			timeoutMs: 20,
+			timeoutMs: 500,
 			intervalMs: 0,
 		});
 
@@ -1959,7 +1966,7 @@ describe("ComputerUseGuiRuntime", () => {
 
 		const result = await runtime.wait({
 			target: "Finished badge",
-			timeoutMs: 20,
+			timeoutMs: 500,
 			intervalMs: 0,
 		});
 

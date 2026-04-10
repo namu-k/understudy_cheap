@@ -520,5 +520,5 @@ Promotion criteria: N consecutive successful executions of the same skill + no u
 - Layer 1 personalized UI memory — currently each grounding prediction is independent, persisting experience (element features, layout model, successful paths) is planned
 - Layer 5 cross-app orchestration — depends on isolated workspace, currently single-app focused per operation, multi-app parallel control is planned
 - Task skill graph — output is still procedural SKILL.md, not composable graph
-- Cross-platform GUI — macOS-centric today
+- Cross-platform GUI — macOS and Windows implemented; Windows adds UIA (UI Automation) tree-based target matching as a faster, deterministic grounding path, falling back to screenshot grounding on no-match or failure
 - Automatic crystallization from Stage 0 → Stage 3 still being refined

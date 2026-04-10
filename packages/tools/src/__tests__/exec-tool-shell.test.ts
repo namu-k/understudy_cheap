@@ -42,21 +42,30 @@ describe("createExecTool shell invocation", () => {
 	});
 
 	it("uses non-login shell execution to avoid sourcing profile files on every command", async () => {
-		mocks.spawn.mockImplementation(() => createMockChildProcess() as any);
-		const { createExecTool } = await import("../exec-tool.js");
-		const tool = createExecTool();
+		// Ensure deterministic shell resolution: unset SHELL so Windows
+		// falls through to COMSPEC/cmd.exe, Unix falls through to /bin/sh.
+		const origShell = process.env.SHELL;
+		delete process.env.SHELL;
+		try {
+			mocks.spawn.mockImplementation(() => createMockChildProcess() as any);
+			const { createExecTool, shellArgs } = await import("../exec-tool.js");
+			const tool = createExecTool();
 
-		await tool.execute("id", {
-			command: "echo ready",
-			yieldMs: 1_000,
-		});
+			await tool.execute("id", {
+				command: "echo ready",
+				yieldMs: 1_000,
+			});
 
-		expect(mocks.spawn).toHaveBeenCalledWith(
-			expect.any(String),
-			["-c", "echo ready"],
-			expect.objectContaining({
-				stdio: ["pipe", "pipe", "pipe"],
-			}),
-		);
+			const shell = mocks.spawn.mock.calls[0]![0] as string;
+			expect(mocks.spawn).toHaveBeenCalledWith(
+				shell,
+				shellArgs(shell, "echo ready"),
+				expect.objectContaining({
+					stdio: ["pipe", "pipe", "pipe"],
+				}),
+			);
+		} finally {
+			process.env.SHELL = origShell;
+		}
 	});
 });

@@ -9,6 +9,9 @@ import {
 	encodeSessionScope,
 } from "../runtime-paths.js";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const originalEngineAgentDir = process.env.PI_CODING_AGENT_DIR;
 const originalUnderstudyAgentDir = process.env.UNDERSTUDY_AGENT_DIR;
 const originalUnderstudyHome = process.env.UNDERSTUDY_HOME;
@@ -61,7 +64,7 @@ describe("runtime path helpers", () => {
 		delete process.env.UNDERSTUDY_AGENT_DIR;
 		process.env.UNDERSTUDY_HOME = "/tmp/custom-understudy-home";
 
-		expect(resolveUnderstudyAgentDir()).toBe("/tmp/custom-understudy-home/agent");
+		expect(toPosix(resolveUnderstudyAgentDir())).toBe("/tmp/custom-understudy-home/agent");
 	});
 
 	it("sets engine storage env to resolved Understudy runtime dir", () => {
@@ -75,7 +78,7 @@ describe("runtime path helpers", () => {
 			"--home-dev-workspace-my-project--",
 		);
 
-		expect(getUnderstudySessionDir("/repo/demo", "/tmp/understudy-agent")).toBe(
+		expect(toPosix(getUnderstudySessionDir("/repo/demo", "/tmp/understudy-agent"))).toBe(
 			"/tmp/understudy-agent/sessions/--repo-demo--",
 		);
 	});

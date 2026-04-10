@@ -3,6 +3,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const mocks = vi.hoisted(() => {
 	const setRuntimeApiKey = vi.fn();
 	const set = vi.fn();
@@ -112,14 +115,14 @@ describe("AuthManager", () => {
 
 	it("creates file-backed auth manager with provided config dir", () => {
 		const mgr = AuthManager.create("/tmp/understudy");
-		expect(mocks.authCreate).toHaveBeenCalledWith("/tmp/understudy/auth.json");
-		expect((mgr.modelRegistry as any).modelsPath).toBe("/tmp/understudy/models.json");
+		expect(toPosix((mocks.authCreate as ReturnType<typeof vi.fn>).mock.calls[0]![0])).toBe("/tmp/understudy/auth.json");
+		expect(toPosix((mgr.modelRegistry as any).modelsPath)).toBe("/tmp/understudy/models.json");
 	});
 
 	it("creates file-backed auth manager under the default agent dir when no explicit dir is provided", async () => {
 		process.env.UNDERSTUDY_AGENT_DIR = "/tmp/default-understudy-agent";
 		AuthManager.create();
-		expect(mocks.authCreate).toHaveBeenCalledWith("/tmp/default-understudy-agent/auth.json");
+		expect(toPosix((mocks.authCreate as ReturnType<typeof vi.fn>).mock.calls[0]![0])).toBe("/tmp/default-understudy-agent/auth.json");
 	});
 
 	it("creates in-memory auth manager", () => {

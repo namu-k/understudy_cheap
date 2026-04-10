@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.4] - 2026-04-11
+
+Windows tests and lint now pass clean. The full test suite runs green on Win32 alongside macOS.
+
+### Fixed
+
+- Shell execution finds `cmd.exe` on Windows via `COMSPEC` and passes the right flag (`/c` vs `-c`). Bash and PowerShell both work now.
+- OCR engine cleans up tesseract.js workers without leaving noisy post-termination errors in the console.
+- Path assertions normalize backslashes across all test files so the same assertions pass on both platforms.
+- Tests that require Unix-only tools (ffmpeg, real shell execution) skip gracefully on Windows instead of failing.
+- Strict equality (`===`/`!==`) replaces loose `==`/`!=` null checks across browser tool, UIA grounding provider, and chat gateway session.
+- Unused test imports removed.
+
 ## [0.3.3] - 2026-04-07
 
 Win32 UIA grounding pipeline: accessibility-tree-based target matching for GUI actions, with graceful fallback to screenshot grounding.

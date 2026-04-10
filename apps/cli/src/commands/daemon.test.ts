@@ -5,6 +5,9 @@ import {
 	resolveServiceSpecForPlatform,
 } from "./daemon.js";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 describe("daemon service helpers", () => {
 	it("renders launchd plist with gateway command", () => {
 		const plist = renderLaunchdPlist({
@@ -48,7 +51,7 @@ describe("daemon service helpers", () => {
 		});
 
 		expect(spec?.manager).toBe("launchd");
-		expect(spec?.filePath).toContain("LaunchAgents/com.understudy.daemon.plist");
+		expect(toPosix(spec?.filePath ?? "")).toContain("LaunchAgents/com.understudy.daemon.plist");
 		expect(spec?.enableCommands.length).toBeGreaterThan(0);
 	});
 
@@ -64,7 +67,7 @@ describe("daemon service helpers", () => {
 		});
 
 		expect(spec?.manager).toBe("systemd");
-		expect(spec?.filePath).toContain(".config/systemd/user/understudy-daemon.service");
+		expect(toPosix(spec?.filePath ?? "")).toContain(".config/systemd/user/understudy-daemon.service");
 		expect(spec?.statusCommand?.command).toBe("systemctl");
 	});
 });

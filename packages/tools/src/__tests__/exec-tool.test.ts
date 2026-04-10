@@ -9,7 +9,9 @@ afterEach(() => {
 	clearExecSessionsForTest();
 });
 
-describe("createExecTool", () => {
+// Real shell execution tests use Unix-style commands that don't work on Windows cmd.exe.
+// The mocked shell-resolution tests in exec-tool-shell.test.ts cover the Windows path.
+(process.platform === "win32" ? describe.skip : describe)("createExecTool", () => {
 	it("runs short commands synchronously and returns the output", async () => {
 		const tool = createExecTool();
 		const result = await tool.execute("id", {
