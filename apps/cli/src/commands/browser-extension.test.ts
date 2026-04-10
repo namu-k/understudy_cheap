@@ -66,9 +66,9 @@ describe("browser extension install", () => {
 	});
 
 	it("defaults the install path to Downloads and respects explicit targets", () => {
-		expect(resolveBrowserExtensionInstallDir({
+		expect(toPosix(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
-		})).toBe("/Users/test/Downloads/Understudy Chrome Extension");
+		}))).toBe("/Users/test/Downloads/Understudy Chrome Extension");
 		expect(toPosix(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
 			target: "managed",

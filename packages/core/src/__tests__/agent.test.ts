@@ -11,7 +11,7 @@ import {
 import { publishWorkflowCrystallizedSkill } from "../workflow-crystallization.js";
 
 /** Normalize path to POSIX format for cross-platform test assertions. */
-const toPosix = (p: string) => p.replace(/\\/g, "/");
+const toPosix = (p: string) => p.replace(/\\/g, "/").replace(/^[A-Za-z]:(?=\/)/, "");
 
 const mocks = vi.hoisted(() => ({
 	setSystemPrompt: vi.fn(),

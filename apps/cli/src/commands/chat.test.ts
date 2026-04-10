@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Normalize path to POSIX format for cross-platform test assertions. */
-const toPosix = (p: string) => p.replace(/\\/g, "/");
+const toPosix = (p: string) => p.replace(/\\/g, "/").replace(/^[A-Za-z]:(?=\/)/, "");
 
 const mocks = vi.hoisted(() => ({
 	loadConfig: vi.fn(),
@@ -303,10 +303,11 @@ describe("runChatCommand", () => {
 		});
 
 		expect(mocks.prepareCliPromptInput).toHaveBeenCalledWith({
-			cwd: "/tmp/project",
+			cwd: expect.any(String),
 			files: ["notes.md"],
 			images: ["screenshot.png"],
 		});
+		expect(toPosix(mocks.prepareCliPromptInput.mock.calls[0]![0].cwd)).toBe("/tmp/project");
 		expect(mocks.mergeCliPromptText).toHaveBeenCalledWith("hello", {
 			text: "Attached file context",
 			images: [{ type: "input_image", image_url: "file:///tmp/screenshot.png" }],
