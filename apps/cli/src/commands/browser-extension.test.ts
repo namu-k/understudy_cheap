@@ -73,11 +73,11 @@ describe("browser extension install", () => {
 			homeDir: "/Users/test",
 			target: "managed",
 		}))).toContain(".understudy/browser/chrome-extension");
-		expect(resolveBrowserExtensionInstallDir({
+		expect(toPosix(resolveBrowserExtensionInstallDir({
 			homeDir: "/Users/test",
 			target: "/tmp/custom-extension",
-		})).toBe("/tmp/custom-extension");
-		expect(resolveBrowserExtensionInstallDir({
+		}))).toBe("/tmp/custom-extension");
+		expect(toPosix(resolveBrowserExtensionInstallDir({
 			config: {
 				browser: {
 					extension: {
@@ -85,7 +85,7 @@ describe("browser extension install", () => {
 					},
 				},
 			} as any,
-		})).toBe("/tmp/from-config");
+		}))).toBe("/tmp/from-config");
 	});
 
 	it("rejects removed legacy install targets", () => {
