@@ -10,6 +10,9 @@ import {
 } from "../task-drafts.js";
 import { publishWorkflowCrystallizedSkill } from "../workflow-crystallization.js";
 
+/** Normalize path to POSIX format for cross-platform test assertions. */
+const toPosix = (p: string) => p.replace(/\\/g, "/");
+
 const mocks = vi.hoisted(() => ({
 	setSystemPrompt: vi.fn(),
 	createAgentSession: vi.fn(),
@@ -143,7 +146,7 @@ describe("createUnderstudySession", () => {
 		expect(mocks.setSystemPrompt.mock.calls[0][0]).toContain("## Model Aliases");
 		expect(mocks.setSystemPrompt.mock.calls[0][0]).toContain("fast -> google/gemini-2.5-flash");
 		expect(mocks.setSystemPrompt.mock.calls[0][0]).not.toContain("## Identity Policy");
-		expect(result.sessionMeta.workspaceDir).toBe("/tmp/understudy");
+		expect(toPosix(result.sessionMeta.workspaceDir)).toBe("/tmp/understudy");
 		expect(result.sessionMeta.backend).toBe("embedded");
 		expect(result.sessionMeta.promptReport.systemPrompt.chars).toBeGreaterThan(0);
 		expect(result.sessionMeta.promptReport.tools.entries.some((entry) => entry.name === "demo_tool")).toBe(true);
@@ -151,7 +154,7 @@ describe("createUnderstudySession", () => {
 
 		expect(mocks.createAgentSession).toHaveBeenCalledTimes(1);
 		const args = mocks.createAgentSession.mock.calls[0][0] as any;
-		expect(args.cwd).toBe("/tmp/understudy");
+		expect(toPosix(args.cwd)).toBe("/tmp/understudy");
 		expect(args.tools).toEqual([]);
 		expect(args.thinkingLevel).toBeUndefined();
 		expect(args.sessionManager).toBe(sessionManager);
