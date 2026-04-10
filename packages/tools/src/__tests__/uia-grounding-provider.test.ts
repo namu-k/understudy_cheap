@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { GuiGroundingProvider, GuiGroundingRequest, GuiGroundingResult } from "@understudy/gui";
 import { Win32UiaGroundingProvider } from "../uia-grounding-provider.js";
 

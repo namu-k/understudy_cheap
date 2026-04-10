@@ -127,7 +127,7 @@ export class Win32UiaGroundingProvider implements GuiGroundingProvider {
 			});
 
 			const candidates = flattenUiaTree(tree, this.maxDepth);
-			const isClickAction = params.action != null && CLICK_ACTIONS.has(params.action);
+			const isClickAction = params.action !== null && params.action !== undefined && CLICK_ACTIONS.has(params.action);
 
 			log.debug("UIA tree fetched", {
 				candidateCount: candidates.length,
