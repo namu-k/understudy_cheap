@@ -107,9 +107,16 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 	return {
 		async recognize(imagePath: string): Promise<OcrResult[]> {
 			clearIdle();
+			let imageBuffer: Buffer;
+			try {
+				imageBuffer = await readFile(imagePath);
+			} catch (err) {
+				// File read failure — not a worker problem, don't touch the worker.
+				log.warn("OCR image read failed", { error: String(err) });
+				return [];
+			}
 			try {
 				const w = await getWorker();
-				const imageBuffer = await readFile(imagePath);
 				const { data } = await w.recognize(imageBuffer);
 				jobCount++;
 				scheduleIdle();
@@ -127,6 +134,15 @@ export function createTesseractOcrEngine(options: OcrEngineOptions = {}): OcrEng
 					}));
 			} catch (err) {
 				log.warn("Tesseract OCR failed", { error: String(err) });
+				// Recognize or worker creation failed — the worker may be in a
+				// broken state. Terminate and reset so the next call creates a
+				// fresh worker instead of reusing a stale handle.
+				if (worker) {
+					await worker.terminate().catch(() => {});
+					worker = null;
+				}
+				workerPromise = null;
+				jobCount = 0;
 				return [];
 			}
 		},

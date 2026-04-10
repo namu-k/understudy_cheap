@@ -52,6 +52,26 @@ describe("createTesseractOcrEngine", () => {
 		// Should not throw on double-terminate
 		await engine.terminate?.();
 	});
+
+	it("recovers after a recognize() rejection without leaking stale workers", async () => {
+		const engine = createTesseractOcrEngine();
+		const { createTestImage, cleanupTempDirs } = await import("../grounding-test-helpers.js");
+		try {
+			const imagePath = await createTestImage(10, 10, "ocr-force-fail.png");
+			// Write garbage data to force tesseract to reject the image
+			const fs = await import("node:fs/promises");
+			await fs.writeFile(imagePath, Buffer.from("NOT_AN_IMAGE"));
+			// Call twice — if worker cleanup works, second call creates a fresh
+			// worker and does not hang or fire unhandled rejections.
+			const results = await engine.recognize(imagePath);
+			expect(Array.isArray(results)).toBe(true);
+			const results2 = await engine.recognize(imagePath);
+			expect(Array.isArray(results2)).toBe(true);
+		} finally {
+			await engine.terminate?.();
+			await cleanupTempDirs();
+		}
+	});
 });
 
 describe.skipIf(process.platform !== "darwin")("createVisionOcrEngine", () => {
