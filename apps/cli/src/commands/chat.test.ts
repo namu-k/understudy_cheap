@@ -5,6 +5,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Normalize path to POSIX format for cross-platform test assertions. */
 const toPosix = (p: string) => p.replace(/\\/g, "/").replace(/^[A-Za-z]:(?=\/)/, "");
+const toPosixDeep = (value: unknown): unknown => {
+	if (typeof value === "string") return value.includes("\\") || value.includes("/") ? toPosix(value) : value;
+	if (Array.isArray(value)) return value.map(toPosixDeep);
+	if (value !== null && typeof value === "object") {
+		const result: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value)) result[key] = toPosixDeep(val);
+		return result;
+	}
+	return value;
+};
 
 const mocks = vi.hoisted(() => ({
 	loadConfig: vi.fn(),
@@ -313,21 +323,25 @@ describe("runChatCommand", () => {
 			images: [{ type: "input_image", image_url: "file:///tmp/screenshot.png" }],
 		});
 		expect(log.mock.calls.flat().join("\n")).toContain("Using gateway session: gateway-session-1");
-		expect(mocks.createUnderstudySession).toHaveBeenCalledWith(expect.objectContaining({
-			configPath: "/tmp/understudy/config.json5",
-			channel: "tui",
-			thinkingLevel: "high",
-			extraTools: [{ name: "mock-tool" }],
-			sessionManager: expect.any(Object),
-		}));
+		expect(mocks.createUnderstudySession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				configPath: "/tmp/understudy/config.json5",
+				channel: "tui",
+				thinkingLevel: "high",
+				extraTools: [{ name: "mock-tool" }],
+				sessionManager: expect.any(Object),
+			}),
+		);
 		expect(toPosix((mocks.createUnderstudySession.mock.calls[0]![0] as any).cwd)).toBe("/tmp/project");
-		expect(mocks.createGatewayBackedInteractiveSession).toHaveBeenCalledWith(expect.objectContaining({
-			gatewayUrl: "http://127.0.0.1:23333",
-			forceNew: false,
-			configOverride: {
-				defaultThinkingLevel: "high",
-			},
-		}));
+		expect(mocks.createGatewayBackedInteractiveSession).toHaveBeenCalledWith(expect.objectContaining(
+			toPosixDeep({
+				gatewayUrl: "http://127.0.0.1:23333",
+				forceNew: false,
+				configOverride: {
+					defaultThinkingLevel: "high",
+				},
+			}),
+		));
 		expect(toPosix((mocks.createGatewayBackedInteractiveSession.mock.calls[0]![0] as any).cwd)).toBe("/tmp/project");
 		expect(mocks.createConfiguredRuntimeToolset).toHaveBeenCalledWith(expect.objectContaining({
 			scheduleService: expect.any(Object),
