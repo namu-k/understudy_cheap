@@ -103,6 +103,7 @@ describe("AuthManager", () => {
 		delete process.env.OPENAI_API_KEY;
 		delete process.env.GOOGLE_API_KEY;
 		delete process.env.GEMINI_API_KEY;
+		delete process.env.UNDERSTUDY_AGENT_DIR;
 		mocks.list.mockReturnValue([]);
 		mocks.has.mockReturnValue(false);
 		mocks.get.mockReturnValue(undefined);
