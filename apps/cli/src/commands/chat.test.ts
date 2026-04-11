@@ -626,7 +626,9 @@ describe("managed TUI tool download policy", () => {
 	});
 
 	it("temporarily sets PI_OFFLINE while interactive mode is running", () => {
-		const env = {} as NodeJS.ProcessEnv;
+		const env = {
+			PATH: "",
+		} as NodeJS.ProcessEnv;
 		const log = vi.fn();
 
 		const restore = applyManagedTuiToolDownloadPolicy(env, log);
