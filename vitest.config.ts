@@ -15,6 +15,10 @@ export default defineConfig({
 				"packages/channels/src/**/*.ts",
 				"packages/gui/src/**/*.ts",
 			],
+			// Channel implementations (discord, slack, telegram, whatsapp) are excluded
+			// from coverage because they depend on optionalDependencies (grammy,
+			// discord.js, @slack/bolt, baileys) that may not be installed. Their
+			// adapters are tested individually when the dependencies are available.
 			exclude: [
 				"**/*.test.ts",
 				"**/*.d.ts",
