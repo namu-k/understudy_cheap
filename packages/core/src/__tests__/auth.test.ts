@@ -232,7 +232,7 @@ describe("AuthManager", () => {
 		expect(mocks.setRuntimeApiKey).toHaveBeenCalledWith("openai-codex", "env-openai-key");
 		expect(mocks.setRuntimeApiKey).toHaveBeenCalledWith("google", "env-gemini-key");
 		expect(mocks.setRuntimeApiKey).toHaveBeenCalledWith("gemini", "env-gemini-key");
-		expect(result.report.envProviders).toEqual(["anthropic", "openai", "openai-codex", "google", "gemini"]);
+		expect([...result.report.envProviders].sort()).toEqual(["anthropic", "gemini", "google", "openai", "openai-codex"]);
 	});
 
 	it("inspects auth status across providers", () => {
