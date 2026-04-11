@@ -1138,6 +1138,6 @@ copyFileSync(fixturePath, outputPath);
 		})).rejects.toThrow("video teach analysis timed out");
 
 		expect(prompt).toHaveBeenCalledTimes(1);
-		expect(close).toHaveBeenCalled();
+		expect(close).toHaveBeenCalledTimes(1);
 	});
 });
