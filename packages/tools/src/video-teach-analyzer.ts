@@ -2314,6 +2314,12 @@ async function requestJsonViaSession(params: {
 			promptMode: "none",
 		});
 		let promptTimeout: ReturnType<typeof setTimeout> | undefined;
+		let closed = false;
+		const safeClose = async () => {
+			if (closed) return;
+			closed = true;
+			await sessionResult.runtimeSession.close();
+		};
 		try {
 			const promptPromise = sessionResult.session.prompt(
 				[
@@ -2327,7 +2333,7 @@ async function requestJsonViaSession(params: {
 					promptPromise,
 					new Promise<never>((_, reject) => {
 						promptTimeout = setTimeout(() => {
-							void Promise.resolve(sessionResult.runtimeSession.close()).catch(() => {});
+							void safeClose().catch(() => {});
 							reject(new Error(`${params.providerName} video teach analysis timed out after ${params.timeoutMs}ms.`));
 						}, params.timeoutMs);
 					}),
@@ -2348,7 +2354,7 @@ async function requestJsonViaSession(params: {
 			if (promptTimeout) {
 				clearTimeout(promptTimeout);
 			}
-			await sessionResult.runtimeSession.close();
+			await safeClose();
 		}
 	}
 	throw lastParseError ?? new Error("Video teach analysis did not return a usable response.");

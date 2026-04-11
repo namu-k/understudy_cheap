@@ -3,8 +3,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "tests/**/*.test.ts"],
-		testTimeout: 60000,
-		hookTimeout: 120000,
+		testTimeout: 30000,
+		hookTimeout: 60000,
 		coverage: {
 			provider: "v8",
 			// M1 core runtime paths: core + gateway + tools + web channel.
@@ -13,7 +13,12 @@ export default defineConfig({
 				"packages/gateway/src/**/*.ts",
 				"packages/tools/src/**/*.ts",
 				"packages/channels/src/**/*.ts",
+				"packages/gui/src/**/*.ts",
 			],
+			// Channel implementations (discord, slack, telegram, whatsapp) are excluded
+			// from coverage because they depend on optionalDependencies (grammy,
+			// discord.js, @slack/bolt, baileys) that may not be installed. Their
+			// adapters are tested individually when the dependencies are available.
 			exclude: [
 				"**/*.test.ts",
 				"**/*.d.ts",
@@ -29,7 +34,7 @@ export default defineConfig({
 			],
 			thresholds: {
 				statements: 70,
-				branches: 65,
+				branches: 70,
 				functions: 70,
 				lines: 70,
 			},

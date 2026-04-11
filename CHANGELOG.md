@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.5] - 2026-04-12
+
+Test coverage improvements: config gaps, env leak fixes, stronger assertions, and double-close guard.
+
+### Fixed
+
+- Added `packages/gui/src` to Vitest coverage includes so GUI package is tracked.
+- Reduced root test/hook timeouts (60s→30s, 120s→60s) to match package-level config.
+- Raised coverage branches threshold from 65% to 70%.
+- Cleaned up `UNDERSTUDY_AGENT_DIR` env leak in auth test `beforeEach`.
+- Strengthened sessionId assertions from `toBeTruthy` to regex match in exec-tool tests.
+- Removed incorrect Windows skip guard from exec-tool tests (commands use Node.js, not Unix shell).
+- Added `safeClose` guard to `video-teach-analyzer.ts` to prevent double-close race between timeout and finally.
+- Verified close call count (`toHaveBeenCalledTimes(1)`) in video teach timeout test.
+- Documented channels coverage exclusion rationale in vitest config comments.
+
 ## [0.3.4] - 2026-04-11
 
 Windows tests and lint now pass clean. The full test suite runs green on Win32 alongside macOS.

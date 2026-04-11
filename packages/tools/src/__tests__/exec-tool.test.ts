@@ -9,9 +9,7 @@ afterEach(() => {
 	clearExecSessionsForTest();
 });
 
-// Real shell execution tests use Unix-style commands that don't work on Windows cmd.exe.
-// The mocked shell-resolution tests in exec-tool-shell.test.ts cover the Windows path.
-(process.platform === "win32" ? describe.skip : describe)("createExecTool", () => {
+describe("createExecTool", () => {
 	it("runs short commands synchronously and returns the output", async () => {
 		const tool = createExecTool();
 		const result = await tool.execute("id", {
@@ -39,7 +37,7 @@ afterEach(() => {
 		const sessionId = (started.details as { sessionId?: string }).sessionId;
 
 		expect((started.details as { status?: string }).status).toBe("running");
-		expect(sessionId).toBeTruthy();
+		expect(sessionId).toMatch(/^exec_[a-z0-9]+_[a-z0-9]{6}$/);
 		expect((started.content[0] as { text: string }).text).toContain("Background exec session started");
 
 			const listed = await processTool.execute("id", { action: "list" });
@@ -78,7 +76,7 @@ afterEach(() => {
 			background: true,
 		});
 		const sessionId = (started.details as { sessionId?: string }).sessionId;
-		expect(sessionId).toBeTruthy();
+		expect(sessionId).toMatch(/^exec_[a-z0-9]+_[a-z0-9]{6}$/);
 
 		const write = await processTool.execute("id", {
 			action: "write",
