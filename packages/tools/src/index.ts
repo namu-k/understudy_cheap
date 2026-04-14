@@ -8,7 +8,7 @@ export { createApplyPatchTool } from "./apply-patch-tool.js";
 export { createImageTool } from "./image-tool.js";
 export { createVisionReadTool } from "./vision-read-tool.js";
 export { createPdfTool } from "./pdf-tool.js";
-export type { GuiGroundingProvider } from "@understudy/gui";
+export type { GuiGroundingProvider } from "@understudy/types";
 export {
 	createOpenAIGroundingProvider,
 	DEFAULT_OPENAI_GROUNDING_MODEL,

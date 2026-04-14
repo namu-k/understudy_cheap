@@ -1,14 +1,14 @@
-import {
-	normalizeGuiGroundingMode,
-	type GuiGroundingActionIntent,
-	type GuiGroundingCoordinateSpace,
-	type GuiGroundingFailure,
-	type GuiGroundingFailureKind,
-	type GuiGroundingMode,
-	type GuiGroundingProvider,
-	type GuiGroundingRequest,
-	type GuiGroundingResult,
-} from "@understudy/gui";
+import type {
+	GuiGroundingActionIntent,
+	GuiGroundingCoordinateSpace,
+	GuiGroundingFailure,
+	GuiGroundingFailureKind,
+	GuiGroundingMode,
+	GuiGroundingProvider,
+	GuiGroundingRequest,
+	GuiGroundingResult,
+} from "@understudy/types";
+import { normalizeGuiGroundingMode } from "@understudy/gui";
 import {
 	createGroundingGuideImage,
 	type GroundingGuideImageArtifact,

@@ -1,9 +1,9 @@
-import {
-	type GuiGroundingCoordinateSpace,
-	type GuiGroundingProvider,
-	type GuiGroundingRequest,
-	type GuiGroundingResult,
-} from "@understudy/gui";
+import type {
+	GuiGroundingCoordinateSpace,
+	GuiGroundingProvider,
+	GuiGroundingRequest,
+	GuiGroundingResult,
+} from "@understudy/types";
 import { getUiaTree, resolveWin32Helper } from "@understudy/gui";
 import { createLogger } from "@understudy/core";
 import {
