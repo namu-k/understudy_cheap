@@ -1,10 +1,9 @@
 import type { Attachment, UnderstudyConfig } from "@understudy/types";
 import type { GuiDemonstrationRecorder } from "@understudy/gui";
-import type { ImageContent, Model } from "@mariozechner/pi-ai";
-import type { TeachCapabilitySnapshot } from "@understudy/tools";
+import type { ImageContent } from "@mariozechner/pi-ai";
 import type { SubagentMode, SubagentSessionMeta } from "./subagent-registry.js";
 import type { ResolvedSubagentAgentTarget } from "./subagent-spawn-plan.js";
-import type { UsageTracker, TaughtTaskDraft } from "@understudy/core";
+import type { UsageTracker } from "@understudy/core";
 
 export interface SessionEntry {
 	id: string;

@@ -5,7 +5,6 @@ import type {
 	TaughtTaskProcedureStep,
 	TaughtTaskPlaybookStage,
 	TaughtTaskWorkerContract,
-	TaughtTaskStepRouteOption,
 } from "./task-draft-types.js";
 import {
 	normalizeWorkerContract,
@@ -17,7 +16,6 @@ import {
 	formatExecutionRouteOrder,
 	describeDetailedStepUsage,
 	describeToolArgumentValue,
-	normalizeLineList,
 } from "./task-draft-normalization.js";
 
 function sanitizeSkillNameSegment(value: string): string {

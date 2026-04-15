@@ -16,7 +16,6 @@ import {
 } from "../prompt-report.js";
 import {
 	createOpenClawCompatibilityToolAliases,
-	filterOpenClawCompatibilityToolNames,
 } from "../openclaw-compat.js";
 import { createLogger } from "../logger.js";
 import type {
@@ -54,7 +53,6 @@ import { ensureRuntimeEngineAgentDirEnv, resolveUnderstudyAgentDir } from "../ru
 import { createSandboxBashSpawnHook } from "./sandbox-bash-hook.js";
 import {
 	resolveRuntimeModelCandidates,
-	type RuntimeResolvedModelCandidate,
 } from "./bridge/model-resolution-bridge.js";
 import { prepareRuntimeAuthContext } from "../auth.js";
 import { resolveWorkspaceContext } from "../workspace-context.js";

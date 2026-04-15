@@ -131,8 +131,6 @@ import {
 	resolveDefaultTaughtTaskSkillsDir,
 } from "./task-draft-publishing.js";
 
-import type { WorkspaceArtifactKind } from "./workspace-artifact-types.js";
-
 function matchesLearningWorkspaceScope(params: {
 	requestedWorkspaceDir: string;
 	payloadWorkspaceDir?: string;

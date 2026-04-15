@@ -1,14 +1,11 @@
 import { basename, join, resolve } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
 	normalizeAssistantDisplayText,
 	normalizeTaughtTaskToolArguments,
 	resolveUnderstudyHomeDir,
 	extractTaughtTaskToolArgumentsFromRecord,
-	withTimeout,
 	type TaughtTaskDraft,
-	type TaughtTaskDraftParameter,
-	type TaughtTaskCard,
 } from "@understudy/core";
 import type {
 	GuiDemonstrationRecorder,
@@ -16,7 +13,7 @@ import type {
 } from "@understudy/gui";
 import type { ImageContent } from "@mariozechner/pi-ai";
 import type { Attachment } from "@understudy/types";
-import { asBoolean, asNumber, asRecord, asString, normalizeComparableText, sanitizePathSegment } from "./value-coerce.js";
+import { asBoolean, asNumber, asRecord, asString, sanitizePathSegment } from "./value-coerce.js";
 import {
 	type TeachClarificationPayload,
 	type TeachClarificationState,
@@ -48,15 +45,7 @@ import {
 import {
 	buildTeachClarificationReport,
 	buildTeachReport,
-	formatTeachClockTime,
-	formatTeachDuration,
-	loadTeachSkillPreview,
-	summarizeTeachChecks,
-	summarizeTeachDraft,
-	summarizeTeachKeyframes,
 	summarizeTeachList,
-	summarizeTeachSkill,
-	summarizeTeachValidation,
 } from "./teach-formatters.js";
 import { extractJsonObject } from "@understudy/tools";
 import type { TeachInternalSessionsDeps } from "./teach-internal-sessions.js";

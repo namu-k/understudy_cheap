@@ -7,40 +7,19 @@ import {
 	buildSessionResetPrompt,
 	listPlaybookRuns,
 	loadPlaybookRun,
-	loadPersistedWorkflowCrystallizationLedger,
 	loadPersistedTaughtTaskDraftLedger,
 	normalizeAssistantDisplayText,
-	publishWorkflowCrystallizedSkill,
-	replaceWorkflowCrystallizationClusters,
-	replaceWorkflowCrystallizationDayEpisodes,
-	replaceWorkflowCrystallizationDaySegments,
-	replaceWorkflowCrystallizationSkills,
 	resolveUnderstudyHomeDir,
-	stripInlineDirectiveTagsForDisplay,
-	updatePersistedWorkflowCrystallizationLedger,
-	withTimeout,
 	type PlaybookRunInputValue,
 	type PlaybookRunRecord,
-	type UsageTracker,
-	type WorkflowCrystallizationCluster,
-	type WorkflowCrystallizationCompletion,
-	type WorkflowCrystallizationEpisode,
-	type WorkflowCrystallizationLedger,
-	type WorkflowCrystallizationRouteOption,
-	type WorkflowCrystallizationSegment,
-	type WorkflowCrystallizationSkill,
-	type WorkflowCrystallizationSkillStage,
-	type WorkflowCrystallizationStatusCounts,
-	type WorkflowCrystallizationToolStep,
-	type WorkflowCrystallizationTurn,
 } from "@understudy/core";
 import { createMacosDemonstrationRecorder } from "@understudy/gui";
 import { getModel, type ImageContent, type Model } from "@mariozechner/pi-ai";
 import { buildTeachCapabilitySnapshot } from "@understudy/tools";
 import type { TeachCapabilitySnapshot } from "@understudy/tools";
 import type { Attachment, UnderstudyConfig } from "@understudy/types";
-import { createHash, randomUUID } from "node:crypto";
-import { basename, join, resolve } from "node:path";
+import { randomUUID } from "node:crypto";
+import { join, resolve } from "node:path";
 import { buildPromptInputFromMedia } from "./media-input.js";
 import { injectTimestamp, timestampOptsFromConfig } from "./message-timestamp.js";
 import {
@@ -56,12 +35,9 @@ import {
 	markSubagentRunFailed,
 	markSubagentRunStarted,
 	resolveSubagentEntry,
-	type SubagentMode,
-	type SubagentSessionMeta,
 } from "./subagent-registry.js";
 import {
 	resolveSubagentSpawnPlan,
-	type ResolvedSubagentAgentTarget,
 	type SpawnSubagentParams,
 } from "./subagent-spawn-plan.js";
 import { createGatewayTaskDraftHandlers } from "./task-drafts.js";
@@ -74,7 +50,6 @@ import {
 	startPlaybookRun,
 } from "./playbook-runtime.js";
 import {
-	type TeachClarificationState,
 	type TeachSlashCommand,
 	asStringList,
 	normalizeTeachTaskCard,
@@ -82,13 +57,10 @@ import {
 } from "./teach-normalization.js";
 import {
 	buildHistoryTimeline,
-	buildRuntimeMessagesFromHistory,
 	cloneValue,
 	copyRuntimeMessagesForBranch,
-	forkRuntimeMessages,
 	normalizeActiveRunSnapshot,
 	resolveWaitForCompletion,
-	runSupportsHistoryChannels,
 	sanitizeAssistantHistoryEntry,
 	seedRuntimeMessagesFromHistory,
 	touchSession,
@@ -516,48 +488,6 @@ export function normalizeHistoryAttachments(value: unknown): Attachment[] | unde
 
 function resolveRequestedWorkspaceDir(params?: Record<string, unknown>): string | undefined {
 	return asString(params?.workspaceDir) ?? asString(params?.cwd);
-}
-
-function readTeachClarificationState(entry: SessionEntry): TeachClarificationState | undefined {
-	const record = asRecord(entry.sessionMeta?.teachClarification);
-	const draftId = trimToUndefined(asString(record?.draftId));
-	if (!draftId) {
-		return undefined;
-	}
-	const status = asString(record?.status) === "ready" ? "ready" : "clarifying";
-	return {
-		draftId,
-		status,
-		summary: trimToUndefined(asString(record?.summary)),
-		nextQuestion: trimToUndefined(asString(record?.nextQuestion)),
-		pendingQuestions: asStringList(record?.pendingQuestions),
-		taskCard: normalizeTeachTaskCard(asRecord(record?.taskCard)),
-		excludedDemoSteps: asStringList(record?.excludedDemoSteps),
-		updatedAt: asNumber(record?.updatedAt) ?? Date.now(),
-	};
-}
-
-function writeTeachClarificationState(entry: SessionEntry, state?: TeachClarificationState): void {
-	if (!state) {
-		if (entry.sessionMeta && typeof entry.sessionMeta === "object") {
-			const nextMeta = { ...entry.sessionMeta };
-			delete nextMeta.teachClarification;
-			entry.sessionMeta = Object.keys(nextMeta).length > 0 ? nextMeta : undefined;
-		}
-		return;
-	}
-	entry.sessionMeta = Object.assign({}, entry.sessionMeta, {
-		teachClarification: {
-			draftId: state.draftId,
-			status: state.status,
-			summary: state.summary,
-			nextQuestion: state.nextQuestion,
-			pendingQuestions: state.pendingQuestions,
-			taskCard: state.taskCard,
-			excludedDemoSteps: state.excludedDemoSteps,
-			updatedAt: state.updatedAt,
-		},
-	});
 }
 
 export function createGatewaySessionRuntime(
