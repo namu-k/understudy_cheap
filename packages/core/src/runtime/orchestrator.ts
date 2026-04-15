@@ -3,31 +3,20 @@
  * Central place to build tools + prompt and start a runtime adapter session.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { type Model, type ThinkingLevel } from "@mariozechner/pi-ai";
 import type { AgentMessage, AgentTool } from "@mariozechner/pi-agent-core";
 import type { ToolEntry, UnderstudyConfig } from "@understudy/types";
 import { ConfigManager } from "../config.js";
 import { ToolRegistry } from "../tool-registry.js";
 import { TrustEngine } from "../trust-engine.js";
+import type { PromptMode, SystemPromptOptions } from "../system-prompt.js";
 import {
-	buildUnderstudySystemPrompt,
-	type ContextFile,
-	type PromptMode,
-	type SystemPromptOptions,
-} from "../system-prompt.js";
-import { buildSystemPromptParams } from "../system-prompt-params.js";
-import { buildToolSummaryMap } from "../tool-summaries.js";
-import {
-	buildUnderstudyPromptReport,
 	type UnderstudyPromptReport,
 	type UnderstudySessionMeta,
 } from "../prompt-report.js";
 import {
 	createOpenClawCompatibilityToolAliases,
 	filterOpenClawCompatibilityToolNames,
-	shouldHideOpenClawCompatibilityToolName,
 } from "../openclaw-compat.js";
 import { createLogger } from "../logger.js";
 import type {
@@ -36,11 +25,6 @@ import type {
 	RuntimeSessionManager,
 	RuntimeToolDefinition,
 } from "./types.js";
-import { buildWorkspaceSkillSnapshot } from "../skills/workspace.js";
-import {
-	buildTaughtTaskDraftPromptContent,
-	loadPersistedTaughtTaskDraftLedger,
-} from "../task-drafts.js";
 import {
 	type RuntimeProfile,
 } from "./identity-policy.js";
@@ -76,10 +60,19 @@ import { prepareRuntimeAuthContext } from "../auth.js";
 import { resolveWorkspaceContext } from "../workspace-context.js";
 import { getModel } from "@mariozechner/pi-ai";
 import {
-	buildPromptImageModeGuidance,
 	preparePromptImageSupport,
-	resolvePromptImageSupportMode,
 } from "./prompt-image-support.js";
+import {
+	mergeAgentMessage,
+	agentToolToDefinition,
+	describeUnknownError,
+	isContextWindowOverflowError,
+	isRetryablePromptDispatchError,
+	promptRetryBackoffMs,
+	runLifecycleHook,
+	createRuntimeSessionWithModelFallback,
+} from "./orchestrator-helpers.js";
+import { buildSessionPrompt } from "./orchestrator-prompt.js";
 
 export interface UnderstudySessionPromptBuiltEvent {
 	config: UnderstudyConfig;
@@ -172,10 +165,6 @@ export interface UnderstudySessionOptions {
 	lifecycleHooks?: UnderstudySessionLifecycleHooks;
 }
 
-function mergeAgentMessage(target: AgentMessage, source: AgentMessage): AgentMessage {
-	return Object.assign(target, source);
-}
-
 export interface UnderstudySessionResult extends RuntimeCreateSessionResult {
 	config: UnderstudyConfig;
 	toolRegistry: ToolRegistry;
@@ -183,233 +172,6 @@ export interface UnderstudySessionResult extends RuntimeCreateSessionResult {
 }
 
 const logger = createLogger("UnderstudySession");
-
-/**
- * Convert an AgentTool to a runtime tool-definition compatible with adapter customTools.
- * Runtime tool execute supports an optional extra `context` parameter; AgentTool ignores it.
- */
-function agentToolToDefinition(tool: AgentTool<any>): RuntimeToolDefinition {
-	return {
-		name: tool.name,
-		label: tool.label,
-		description: tool.description,
-		parameters: tool.parameters,
-		execute: async (toolCallId, params, signal, onUpdate, _ctx) => {
-			return tool.execute(toolCallId, params, signal, onUpdate);
-		},
-	};
-}
-
-function isHiddenCompatibilityToolDefinition(name: string, presentToolNames: string[]): boolean {
-	return shouldHideOpenClawCompatibilityToolName(name, presentToolNames);
-}
-
-function describeUnknownError(error: unknown): string {
-	return error instanceof Error ? error.message : String(error);
-}
-
-function resolveErrorStatusCode(error: unknown): number | undefined {
-	if (!error || typeof error !== "object") {
-		return undefined;
-	}
-	const direct = (error as { status?: unknown; statusCode?: unknown; code?: unknown });
-	for (const candidate of [direct.status, direct.statusCode, direct.code]) {
-		if (typeof candidate === "number" && Number.isFinite(candidate)) {
-			return candidate;
-		}
-		if (typeof candidate === "string" && /^\d{3}$/.test(candidate.trim())) {
-			return Number(candidate);
-		}
-	}
-	const nested = (error as { response?: { status?: unknown } }).response?.status;
-	if (typeof nested === "number" && Number.isFinite(nested)) {
-		return nested;
-	}
-	if (typeof nested === "string" && /^\d{3}$/.test(nested.trim())) {
-		return Number(nested);
-	}
-	return undefined;
-}
-
-function isRetryableRuntimeSessionCreationError(error: unknown): boolean {
-	const status = resolveErrorStatusCode(error);
-	if (
-		typeof status === "number" &&
-		(status === 401 ||
-			status === 403 ||
-			status === 404 ||
-			status === 408 ||
-			status === 409 ||
-			status === 422 ||
-			status === 429 ||
-			status >= 500)
-	) {
-		return true;
-	}
-
-	const message = describeUnknownError(error).toLowerCase();
-	return [
-		"unauthorized",
-		"forbidden",
-		"authentication",
-		"auth",
-		"api key",
-		"credential",
-		"oauth",
-		"token",
-		"rate limit",
-		"quota",
-		"model not found",
-		"unknown model",
-		"unsupported model",
-		"provider not found",
-		"no model",
-		"not available",
-		"temporarily unavailable",
-		"overloaded",
-		"timeout",
-	].some((fragment) => message.includes(fragment));
-}
-
-function isContextWindowOverflowError(error: unknown): boolean {
-	const status = resolveErrorStatusCode(error);
-	if (status === 400 || status === 413 || status === 422 || status === 429) {
-		return true;
-	}
-
-	const message = describeUnknownError(error).toLowerCase();
-	return [
-		"context length",
-		"context window",
-		"maximum context length",
-		"maximum context size",
-		"prompt is too long",
-		"input is too long",
-		"too many tokens",
-		"token limit",
-		"context limit",
-		"request too large",
-	].some((fragment) => message.includes(fragment));
-}
-
-function isRetryablePromptDispatchError(error: unknown): boolean {
-	const status = resolveErrorStatusCode(error);
-	if (
-		typeof status === "number" &&
-		(status === 408 || status === 409 || status === 425 || status === 429 || status >= 500)
-	) {
-		return true;
-	}
-
-	const message = describeUnknownError(error).toLowerCase();
-	return [
-		"server_error",
-		"internal server error",
-		"temporarily unavailable",
-		"temporary outage",
-		"overloaded",
-		"try again",
-		"connection reset",
-		"connection aborted",
-		"socket hang up",
-		"fetch failed",
-		"econnreset",
-		"etimedout",
-	].some((fragment) => message.includes(fragment));
-}
-
-function promptRetryBackoffMs(attempt: number): number {
-	return attempt <= 1 ? 500 : 1_500;
-}
-
-async function runLifecycleHook<TEvent>(
-	name: keyof UnderstudySessionLifecycleHooks,
-	hook: ((event: TEvent) => Promise<void> | void) | undefined,
-	event: TEvent,
-): Promise<void> {
-	if (!hook) {
-		return;
-	}
-	try {
-		await hook(event);
-	} catch (error) {
-		logger.warn(`Runtime lifecycle hook "${String(name)}" failed: ${String(error)}`);
-	}
-}
-
-async function createRuntimeSessionWithModelFallback(params: {
-	adapter: RuntimeAdapter;
-	cwd: string;
-	agentDir: string;
-	authContext: ReturnType<typeof prepareRuntimeAuthContext>;
-	initialModel: Model<any> | undefined;
-	initialModelLabel: string;
-	candidates: RuntimeResolvedModelCandidate[];
-	thinkingLevel: ThinkingLevel | undefined;
-	customTools: RuntimeToolDefinition[];
-	sessionManager?: RuntimeSessionManager;
-	acpConfig?: UnderstudyConfig["agent"]["acp"];
-	onModelLabelResolved?: (modelLabel: string) => void;
-	explicitModelRequested: boolean;
-}): Promise<{
-	sessionResult: RuntimeCreateSessionResult;
-	model: Model<any> | undefined;
-	modelLabel: string;
-	fallbackUsed: boolean;
-}> {
-	const fallbackCandidates =
-		params.candidates.length > 0
-			? params.candidates
-			: [
-				{
-					model: params.initialModel as Model<any>,
-					modelLabel: params.initialModelLabel,
-					provider: params.initialModel?.provider ?? "",
-					modelId: params.initialModel?.id ?? "",
-					source: "default" as const,
-				},
-			];
-
-	let lastError: unknown;
-	for (let index = 0; index < fallbackCandidates.length; index += 1) {
-		const candidate = fallbackCandidates[index];
-		params.onModelLabelResolved?.(candidate.modelLabel);
-		try {
-			const sessionResult = await params.adapter.createSession({
-				cwd: params.cwd,
-				agentDir: params.agentDir,
-				authStorage: params.authContext.authStorage,
-				modelRegistry: params.authContext.modelRegistry,
-				model: candidate.model,
-				thinkingLevel: params.thinkingLevel,
-				customTools: params.customTools,
-				sessionManager: params.sessionManager,
-				acpConfig: params.acpConfig,
-			});
-			return {
-				sessionResult,
-				model: candidate.model,
-				modelLabel: candidate.modelLabel,
-				fallbackUsed: index > 0,
-			};
-		} catch (error) {
-			lastError = error;
-			const canRetry =
-				!params.explicitModelRequested &&
-				index < fallbackCandidates.length - 1 &&
-				isRetryableRuntimeSessionCreationError(error);
-			if (!canRetry) {
-				throw error;
-			}
-			const next = fallbackCandidates[index + 1];
-			logger.warn(
-				`Runtime session creation failed for ${candidate.modelLabel}: ${describeUnknownError(error)}. Retrying with ${next.modelLabel}.`,
-			);
-		}
-	}
-
-	throw lastError instanceof Error ? lastError : new Error(String(lastError));
-}
 
 export async function createUnderstudySessionWithRuntime(
 	adapter: RuntimeAdapter,
@@ -587,122 +349,21 @@ export async function createUnderstudySessionWithRuntime(
 
 	const { session, runtimeSession } = sessionResult;
 
-	// Build runtime parameters (OS, arch, timezone, git root, model info)
-	const runtimeCapabilities = Array.from(
-		new Set(filterOpenClawCompatibilityToolNames([
-			...(opts.capabilities ?? []),
-			...preflight.enabledToolNames,
-		])),
-	);
-	const runtimeParams = buildSystemPromptParams({
-		model: modelLabel,
-		defaultModel: `${config.defaultProvider}/${config.defaultModel}`,
-		channel: opts.channel,
-		capabilities: runtimeCapabilities,
-		workspaceDir: cwd,
-		cwd,
-		userTimezone: config.agent.userTimezone,
-		repoRoot: workspaceContext.repoRoot ?? config.agent.repoRoot,
-	});
-
-	// Build dynamic tool summaries from AgentTool descriptions
-	const toolSummaries = buildToolSummaryMap(exposedTools);
-
-	// Load project context files (SOUL.md, AGENTS.md, etc.)
-	const contextFiles = loadContextFiles(cwd, config.agent.contextFiles);
-
-	// Load skills via workspace snapshot resolver with precedence/limit controls.
-	const skillsSnapshot = buildWorkspaceSkillSnapshot({
-		workspaceDir: cwd,
+	const promptResult = await buildSessionPrompt({
 		config,
-	});
-
-	const advertisedToolNames = Array.from(
-		new Set(filterOpenClawCompatibilityToolNames(preflight.enabledToolNames)),
-	);
-	const modelFallbackSection = buildModelFallbackPromptContent(config.agent.modelFallbacks);
-	const taughtDraftLedger = cwd
-		? await loadPersistedTaughtTaskDraftLedger({ workspaceDir: cwd }).catch(() => undefined)
-		: undefined;
-	const taughtDraftPromptContent = buildTaughtTaskDraftPromptContent(taughtDraftLedger);
-	const promptImageMode = resolvePromptImageSupportMode(model);
-	const promptImageGuidance = buildPromptImageModeGuidance(promptImageMode);
-
-	// Build and set Understudy system prompt
-	const baseSystemPromptOptions: SystemPromptOptions = {
-		identity: config.agent.identity,
-		toolNames: advertisedToolNames,
-		toolSummaries,
-		skills: skillsSnapshot.resolvedSkills,
+		opts,
 		cwd,
-		safetyInstructions: config.agent.safetyInstructions,
-		promptMode: opts.promptMode ?? (config.agent.promptMode as PromptMode | undefined) ?? "full",
-		runtimeInfo: runtimeParams.runtimeInfo,
-		userTimezone: runtimeParams.userTimezone,
-		userTime: runtimeParams.userTime,
-		defaultThinkLevel: config.defaultThinkingLevel,
-		ownerIds: config.agent.ownerIds,
-		ownerDisplay: config.agent.ownerDisplay,
-		ownerDisplaySecret: config.agent.ownerDisplaySecret,
-		contextFiles,
-		memoryCitationsMode: config.agent.memoryCitationsMode,
-		heartbeatPrompt: config.agent.heartbeatPrompt,
-		ttsHint: config.agent.ttsHint,
-		docsUrl: config.agent.docsUrl,
-		modelAliasLines: config.agent.modelAliasLines,
-		extraSystemPrompt: opts.extraSystemPrompt,
-		reactionGuidance: opts.reactionGuidance,
-		reasoningTagHint: opts.reasoningTagHint,
-		reasoningLevel: opts.reasoningLevel,
-		sandboxInfo: opts.sandboxInfo,
-		extraSections: [
-			{
-				title: "Runtime Profile",
-				content: `profile=${runtimeProfile}`,
-			},
-			...(modelFallbackSection
-				? [
-					{
-						title: "Model Fallback",
-						content: modelFallbackSection,
-					},
-				]
-				: []),
-				...(promptImageGuidance
-					? [
-						{
-							title: "Image Input Mode",
-							content: promptImageGuidance,
-						},
-					]
-					: []),
-				...(taughtDraftPromptContent
-					? [
-						{
-							title: "Teach Drafts",
-							content: taughtDraftPromptContent,
-						},
-					]
-					: []),
-			],
-		};
-	const promptBuild = await policyPipeline.runBeforePromptBuild({
-		options: baseSystemPromptOptions,
+		workspaceContext,
+		modelLabel,
+		exposedTools,
+		preflight,
+		runtimeProfile,
+		policyPipeline,
+		model,
+		customToolDefs,
 	});
-	const systemPrompt = buildUnderstudySystemPrompt(promptBuild.options);
-	const visibleToolNames = customToolDefs.map((toolDef) => toolDef.name);
-	const visibleToolDefinitions = customToolDefs.filter(
-		(toolDef) => !isHiddenCompatibilityToolDefinition(toolDef.name, visibleToolNames),
-	);
-	const promptReport = buildUnderstudyPromptReport({
-		workspaceDir: cwd,
-		systemPrompt,
-		contextFiles,
-		skills: skillsSnapshot.resolvedSkills,
-		toolNames: advertisedToolNames,
-		toolSummaries,
-		toolDefinitions: visibleToolDefinitions,
-	});
+	const { systemPrompt, promptReport, advertisedToolNames, runtimeParams } = promptResult;
+
 	const sessionMeta: UnderstudySessionMeta = {
 		backend: adapter.name,
 		model: modelLabel || "auto",
@@ -883,45 +544,4 @@ export async function createUnderstudySessionWithRuntime(
 		toolRegistry,
 		sessionMeta,
 	};
-}
-
-/**
- * Load project context files from disk.
- * Searches for configured paths and auto-detected files (SOUL.md, AGENTS.md).
- */
-function loadContextFiles(cwd: string, configuredPaths?: string[]): ContextFile[] {
-	const files: ContextFile[] = [];
-	const seen = new Set<string>();
-
-	// Auto-detect standard context files in cwd
-	const autoFiles = ["SOUL.md", "AGENTS.md", "CLAUDE.md"];
-	const allPaths = [...autoFiles, ...(configuredPaths ?? [])];
-
-	for (const filePath of allPaths) {
-		const resolved = resolve(cwd, filePath);
-		if (seen.has(resolved)) continue;
-		seen.add(resolved);
-
-		try {
-			const content = readFileSync(resolved, "utf-8");
-			if (content.trim()) {
-				files.push({ path: filePath, content: content.trim() });
-			}
-		} catch {
-			// File doesn't exist, skip
-		}
-	}
-
-	return files;
-}
-
-function buildModelFallbackPromptContent(modelFallbacks?: string[]): string | undefined {
-	const chain = (modelFallbacks ?? []).map((item) => item.trim()).filter(Boolean);
-	if (chain.length === 0) {
-		return undefined;
-	}
-	return [
-		"Fallback candidates (ordered):",
-		...chain.map((item) => `- ${item}`),
-	].join("\n");
 }
