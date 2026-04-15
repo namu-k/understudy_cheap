@@ -119,7 +119,7 @@ describe("createTeachInternalSessions", () => {
 
 		it("throws teach timeout error on timeout", async () => {
 			(deps.runSerializedSessionTurn as ReturnType<typeof vi.fn>).mockImplementation(
-				async (_entry: unknown, task: () => Promise<unknown>) => {
+				async (_entry: unknown, _task: () => Promise<unknown>) => {
 					throw new Error("timeout");
 				},
 			);

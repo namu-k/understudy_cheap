@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { buildSessionPrompt, type BuildSessionPromptResult } from "../runtime/orchestrator-prompt.js";
+import { buildSessionPrompt } from "../runtime/orchestrator-prompt.js";
 import type { RuntimeToolDefinition } from "../runtime/types.js";
 import { mkdirSync, rmSync } from "node:fs";
 
