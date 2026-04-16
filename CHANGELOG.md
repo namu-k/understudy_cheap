@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.6] - 2026-04-15
+
+Decompose 3 god modules and decouple grounding types into focused, testable units. Zero behavioral changes.
+
+### Changed
+
+- **session-runtime.ts** (gateway): 6766 → 2180 LOC (68% reduction). Extracted 8 focused modules: `teach-normalization`, `session-history`, `teach-prompts`, `session-types`, `workflow-crystallization`, `teach-formatters`, `teach-internal-sessions`, `teach-orchestration`.
+- **task-drafts.ts** (core): 3500 → 1104 LOC (69% reduction). Extracted 3 focused modules: `task-draft-types`, `task-draft-normalization`, `task-draft-publishing`.
+- **orchestrator.ts** (core/runtime): 927 → 547 LOC (41% reduction). Extracted 2 focused modules: `orchestrator-helpers`, `orchestrator-prompt`.
+- **Grounding type decoupling**: Moved 10 grounding interfaces from `@understudy/gui` to `@understudy/types` so tools and providers don't depend on the GUI package. Updated 8 consumer files across `packages/tools/` and `packages/gui/`.
+- **Dead code cleanup**: Removed ~66 unused imports and 2 dead local functions (`readTeachClarificationState`, `writeTeachClarificationState`) from 6 files across `packages/gateway/` and `packages/core/`. Reduced oxlint warnings from 66 to 14 (14 remaining are pre-existing destructured variable warnings).
+
+### Added
+
+- **Seam module tests**: 65 new unit tests covering 3 extracted modules — `session-history` (51 tests), `teach-internal-sessions` (9 tests), `orchestrator-prompt` (5 tests). Tests validate normalization, history timeline construction, channel support checks, prompt assembly, and policy integration.
+
 ## [0.3.5] - 2026-04-12
 
 Test coverage improvements: config gaps, env leak fixes, stronger assertions, and double-close guard.

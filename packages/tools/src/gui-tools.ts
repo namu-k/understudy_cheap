@@ -1,10 +1,10 @@
 import { Type, type Static, type TSchema } from "@sinclair/typebox";
 import type { AgentTool, AgentToolResult } from "@mariozechner/pi-agent-core";
+import type { GuiGroundingProvider } from "@understudy/types";
 import {
 	ComputerUseGuiRuntime,
 	type GuiActionResult,
 	type GuiEnvironmentReadinessSnapshot,
-	type GuiGroundingProvider,
 	type GuiRuntimeCapabilitySnapshot,
 	type GuiToolName,
 } from "@understudy/gui";

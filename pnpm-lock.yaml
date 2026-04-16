@@ -282,6 +282,9 @@ importers:
       '@understudy/core':
         specifier: workspace:*
         version: link:../core
+      '@understudy/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       '@types/node':
         specifier: ^24.3.0

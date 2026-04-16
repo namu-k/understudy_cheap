@@ -1,4 +1,4 @@
-import type { GuiGroundingProvider } from "@understudy/gui";
+import type { GuiGroundingProvider } from "@understudy/types";
 import {
 	createResponsesApiGroundingProvider,
 	type ResponsesApiGroundingProviderOptions,

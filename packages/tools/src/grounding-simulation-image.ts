@@ -1,4 +1,4 @@
-import type { GuiGroundingActionIntent } from "@understudy/gui";
+import type { GuiGroundingActionIntent } from "@understudy/types";
 import { clamp, escapeSvgText } from "./svg-helpers.js";
 import { convertSvgToPng } from "./svg-to-png.js";
 

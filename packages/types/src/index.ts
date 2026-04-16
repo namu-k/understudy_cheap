@@ -50,3 +50,5 @@ export type {
 	RuntimePoliciesConfig,
 } from "./config.js";
 export { DEFAULT_CONFIG, DEFAULT_BROWSER_EXTENSION_CDP_URL } from "./config.js";
+
+export * from "./grounding.js";

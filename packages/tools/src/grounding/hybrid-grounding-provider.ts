@@ -1,4 +1,4 @@
-import type { GuiGroundingProvider, GuiGroundingRequest, GuiGroundingResult } from "@understudy/gui";
+import type { GuiGroundingProvider, GuiGroundingRequest, GuiGroundingResult } from "@understudy/types";
 import type { OcrEngine, OcrResult } from "./ocr-engine.js";
 import { fuzzyMatchOcr } from "./ocr-fuzzy-match.js";
 import { buildCachePageKey } from "./grounding-cache-store.js";
