@@ -40,6 +40,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Check package coupling
+        run: bash scripts/check-package-coupling.sh
+
       - name: Typecheck
         run: pnpm typecheck
 
