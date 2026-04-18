@@ -52,7 +52,6 @@ import {
 import {
 	type TeachSlashCommand,
 	asStringList,
-	normalizeTeachTaskCard,
 	trimToUndefined,
 } from "./teach-normalization.js";
 import {
@@ -773,7 +772,7 @@ export function createGatewaySessionRuntime(
 		abortSessionEntry,
 		runSerializedSessionTurn,
 	});
-	const { createTeachInternalSession, runTeachInternalPrompt, runTeachValidationReplayPrompt } = teachInternalSessions;
+	const { runTeachInternalPrompt, runTeachValidationReplayPrompt } = teachInternalSessions;
 
 	const buildDirectSessionResponse = (params: {
 		entry: SessionEntry;
@@ -855,26 +854,14 @@ export function createGatewaySessionRuntime(
 		runTeachValidationReplayPrompt,
 	});
 	const {
-		startTeachRecording,
-		validateTeachDraftForEntry,
-		updateTeachDraftValidation,
-		persistInternalTeachPromptRun,
 		clearTeachClarificationForDraft,
 		startTeachRecordingFromCommand,
-		updateTeachDraftFromClarification,
-		applyTeachControlNoisePatch,
-		runTeachClarificationPass,
-		bootstrapTeachClarification,
-		confirmTeachClarification,
 		validateExistingTeachDraft,
 		publishExistingTeachDraft,
-		stopTeachRecording,
 		stopTeachRecordingFromCommand,
 		handleTeachClarificationTurn,
-		buildTeachHelpReport,
 		runTeachSlashCommand,
 		activeTeachRecordings,
-		activeTeachClarificationSessions,
 	} = teachOrchestration;
 
 	const finalizePromptRun = async (params: {

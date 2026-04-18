@@ -57,7 +57,8 @@ Test-Case "check-readiness returns ok JSON" {
     $out = & $BinaryPath check-readiness 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    if ($null -eq $json.data.gdiCapture) { throw "missing gdiCapture field" }
+    if ($null -eq $json.data.checks) { throw "missing checks object" }
+    if ($null -eq $json.data.checks.wgc_available) { throw "missing wgc_available field" }
 }
 
 # ── 4. enumerate-windows ─────────────────────────────────────────────────────
@@ -67,8 +68,8 @@ Test-Case "enumerate-windows returns ok JSON" {
     $out = & $BinaryPath enumerate-windows 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    # In headless CI, the windows array may be empty — that's fine
-    if ($null -eq $json.data.windows) { throw "missing windows array" }
+    # enumerate-windows returns the array as data itself, not nested under a property
+    if ($json.data -isnot [array]) { throw "expected data to be a JSON array" }
 }
 
 # ── 5. record-events with --stop-after-ms ────────────────────────────────────
@@ -88,7 +89,7 @@ Test-Case "record-events --stop-after-ms exits cleanly with valid JSON" {
         if ($proc.ExitCode -ne 0) { throw "exit code $($proc.ExitCode)" }
         if (-not (Test-Path $tmpFile)) { throw "event file not created" }
         $content = Get-Content $tmpFile -Raw
-        $events = $content | ConvertFrom-Json
+        $events = $content | ConvertFrom-Json -NoEnumerate
         # Valid JSON array (may be empty [] if no input events in 1.5s)
         if ($events -isnot [array]) { throw "expected JSON array" }
     } finally {
@@ -103,8 +104,9 @@ Test-Case "uia-tree with --max-depth 1 returns ok JSON" {
     $out = & $BinaryPath uia-tree --max-depth 1 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    if ($null -eq $json.data.controlType) { throw "missing controlType in root element" }
-    if ($null -eq $json.data.name) { throw "missing name in root element" }
+    if ($null -eq $json.data.tree) { throw "missing tree in response" }
+    if ($null -eq $json.data.tree.controlType) { throw "missing controlType in root element" }
+    if ($null -eq $json.data.tree.name) { throw "missing name in root element" }
 }
 
 Test-Case "uia-tree with non-existent app returns error" {

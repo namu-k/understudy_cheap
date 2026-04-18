@@ -9,27 +9,83 @@ on:
   pull_request:
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  CI_NODE_VERSION: "22"
+  PNPM_VERSION: "10.6.5"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      windows_native: ${{ steps.detect.outputs.windows_native }}
+      macos_native: ${{ steps.detect.outputs.macos_native }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect OS-native impact
+        id: detect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base="$BASE_SHA"
+            head="$HEAD_SHA"
+          elif [[ -n "${BEFORE_SHA:-}" && "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            base="$BEFORE_SHA"
+            head="$HEAD_SHA"
+          else
+            base="$(git rev-list --max-parents=0 HEAD | tail -n 1)"
+            head="$HEAD_SHA"
+          fi
+
+          git diff --name-only "$base" "$head" > changed-files.txt
+          cat changed-files.txt
+
+          common='^(\.github/workflows/ci\.yml|package\.json|pnpm-lock\.yaml|tsconfig\.base\.json|vitest\.package\.config\.ts|packages/gui/package\.json)$'
+          shared_gui='^packages/gui/src/'
+          windows='^packages/gui/native/win32/'
+          macos='^scripts/check-optional-real-gui\.mjs$'
+
+          if grep -Eq "$common|$shared_gui|$windows" changed-files.txt; then
+            echo "windows_native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "windows_native=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if grep -Eq "$common|$shared_gui|$macos" changed-files.txt; then
+            echo "macos_native=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "macos_native=false" >> "$GITHUB_OUTPUT"
+          fi
+
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.5
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: ${{ env.CI_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -44,29 +100,39 @@ jobs:
         run: pnpm typecheck
 
       - name: Unit + integration tests
+        if: ${{ github.event_name == 'pull_request' || (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/master') }}
+        run: pnpm test
+
+      - name: Unit + integration tests with coverage
+        if: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
         run: pnpm test:coverage
 
       - name: Pack check
         run: pnpm pack:check
 
   test-macos:
+    needs:
+      - changes
+      - validate
+    if: ${{ needs.changes.outputs.macos_native == 'true' }}
     runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.5
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: ${{ env.CI_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -74,27 +140,36 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Unit + integration tests
-        run: pnpm test
+      - name: macOS GUI contract tests
+        run: >
+          pnpm vitest run
+          packages/gui/src/__tests__/native-helper.test.ts
+          packages/gui/src/__tests__/readiness.test.ts
+          packages/gui/src/__tests__/demonstration-recorder.test.ts
 
   test-windows:
+    needs:
+      - changes
+      - validate
+    if: ${{ needs.changes.outputs.windows_native == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.5
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: pnpm
+          node-version: ${{ env.CI_NODE_VERSION }}
+          package-manager-cache: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pnpm
+        run: corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -102,13 +177,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: "3.20.x"
-
-      - name: Setup Visual Studio
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Verify CMake
+        run: cmake --version
 
       - name: Build Win32 helper
         run: |
@@ -119,14 +189,11 @@ jobs:
       - name: Run smoke tests
         run: |
           cd packages/gui/native/win32
-          pwsh ./test-smoke.ps1 -BinaryPath ./build/Release/understudy-win32-helper.exe
-
-      - name: Unit + integration tests
-        run: pnpm test
+          pwsh ./test-smoke.ps1 -BinaryPath .\build\Release\understudy-win32-helper.exe
 
       - name: Upload test artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: windows-test-artifacts
           path: |
