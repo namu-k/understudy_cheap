@@ -14,15 +14,17 @@ export {
 	DEFAULT_OPENAI_GROUNDING_MODEL,
 } from "./openai-grounding-provider.js";
 export {
+	createModelLoopGroundingProvider,
+	type SharedModelLoopGroundingProviderOptions,
+} from "./response-grounding-provider.js";
+export {
 	buildGroundingPrompt,
 	buildGroundingValidationPrompt,
-	createModelLoopGroundingProvider,
 	parseGroundingResponseText,
 	parseGroundingValidationResponseText,
 	type ParsedGroundingResponse,
 	type ParsedGroundingValidationResponse,
-	type SharedModelLoopGroundingProviderOptions,
-} from "./response-grounding-provider.js";
+} from "./grounding/validation.js";
 export { Win32UiaGroundingProvider, createWin32UiaGroundingProvider } from "./uia-grounding-provider.js";
 export { flattenUiaTree, findBestUiaMatch, scoreCandidate } from "./uia-target-matcher.js";
 export type { FlatUiaCandidate, UiaMatchResult } from "./uia-target-matcher.js";

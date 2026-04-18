@@ -7,21 +7,13 @@
 import { existsSync } from "node:fs";
 import type { Express } from "express";
 import express from "express";
-import { buildSessionUiHelpersScript } from "./session-ui-helpers.js";
-import { understudyBrandIconDataUrl } from "./ui-brand.js";
-import { getControlCSS } from "./control/css.js";
-import { getControlJS } from "./control/js/index.js";
-import { renderControlHTML } from "./control/html.js";
+import { buildControlHtml, type ControlPageOptions } from "./control/index.js";
 
-export interface ControlUiOptions {
+export interface ControlUiOptions extends ControlPageOptions {
 	/** Base URL path (default: "/ui") */
 	basePath?: string;
 	/** Path to custom static assets (overrides embedded UI) */
 	assetRoot?: string;
-	/** Assistant name shown in UI */
-	assistantName?: string;
-	/** Assistant avatar URL */
-	assistantAvatarUrl?: string;
 	/** Allowed CORS origins */
 	allowedOrigins?: string[];
 }
@@ -61,7 +53,7 @@ export function mountControlUi(app: Express, options: ControlUiOptions = {}): vo
 	});
 
 	// Embedded SPA (inline HTML)
-	const indexHtml = buildAdminHtml(options);
+	const indexHtml = buildControlHtml(options);
 	app.get(basePath, (_req, res) => {
 		res.setHeader("Content-Type", "text/html; charset=utf-8");
 		res.send(indexHtml);
@@ -76,25 +68,5 @@ export function mountControlUi(app: Express, options: ControlUiOptions = {}): vo
 		} else {
 			next();
 		}
-	});
-}
-
-function escapeHtml(str: string): string {
-	return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function buildAdminHtml(options: ControlUiOptions): string {
-	const name = escapeHtml(options.assistantName ?? "Understudy");
-	const brandIconDataUrl = understudyBrandIconDataUrl();
-	const avatarUrl = escapeHtml(options.assistantAvatarUrl ?? brandIconDataUrl);
-	const sessionUiHelpersScript = buildSessionUiHelpersScript({ liveChannelId: "web" });
-
-	const css = getControlCSS();
-	const js = getControlJS(sessionUiHelpersScript);
-
-	return renderControlHTML(css, js, {
-		name,
-		brandIconDataUrl,
-		avatarUrl,
 	});
 }

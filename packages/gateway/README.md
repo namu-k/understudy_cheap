@@ -12,6 +12,7 @@ HTTP + WebSocket gateway server for Understudy.
 - **Worker runtime**: contract-driven worker launches with budgets, allowed surfaces, and explicit output contracts
 - **WebChat UI**: embedded SPA for real-time chat with session management
 - **Control UI (Dashboard)**: embedded SPA for gateway control, session inspection, playbook-run inspection, and health monitoring
+- **Embedded SPA delivery**: both SPAs remain inline HTML/CSS/JS bundles served by the gateway; this refactor only split composition into smaller modules, not external static assets
 - **Channel policy**: per-channel tool preset adjustments and identity enforcement
 - **Run registry**: agent turn execution tracking with TTL-based cleanup
 
@@ -21,8 +22,10 @@ HTTP + WebSocket gateway server for Understudy.
 |------|---------|
 | `server.ts` | Gateway HTTP/WS server setup and lifecycle |
 | `session-runtime.ts` | Core session management and agent execution |
-| `webchat-ui.ts` | Embedded WebChat SPA |
-| `control-ui.ts` | Embedded Dashboard SPA |
+| `webchat/index.ts` | Composes the embedded WebChat HTML/CSS/JS bundle |
+| `webchat-ui.ts` | Thin compatibility wrapper exporting the WebChat page builder |
+| `control/index.ts` | Composes the embedded Dashboard HTML/CSS/JS bundle |
+| `control-ui.ts` | Mounts dashboard routes and serves the embedded SPA |
 | `playbook-runtime.ts` | Generic staged playbook orchestration |
 | `worker-runtime.ts` | Contract-driven worker stage launcher |
 | `skill-runtime.ts` | Workspace skill stage launcher |
