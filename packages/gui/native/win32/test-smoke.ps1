@@ -68,8 +68,8 @@ Test-Case "enumerate-windows returns ok JSON" {
     $out = & $BinaryPath enumerate-windows 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    # In headless CI, the windows array may be empty — that's fine
-    if ($null -eq $json.data.windows) { throw "missing windows array" }
+    # enumerate-windows returns the array as data itself, not nested under a property
+    if ($json.data -isnot [array]) { throw "expected data to be a JSON array" }
 }
 
 # ── 5. record-events with --stop-after-ms ────────────────────────────────────
@@ -89,7 +89,7 @@ Test-Case "record-events --stop-after-ms exits cleanly with valid JSON" {
         if ($proc.ExitCode -ne 0) { throw "exit code $($proc.ExitCode)" }
         if (-not (Test-Path $tmpFile)) { throw "event file not created" }
         $content = Get-Content $tmpFile -Raw
-        $events = $content | ConvertFrom-Json
+        $events = $content | ConvertFrom-Json -NoEnumerate
         # Valid JSON array (may be empty [] if no input events in 1.5s)
         if ($events -isnot [array]) { throw "expected JSON array" }
     } finally {
