@@ -79,7 +79,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-          cache: pnpm
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
@@ -126,7 +126,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-          cache: pnpm
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
@@ -163,7 +163,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.CI_NODE_VERSION }}
-          cache: pnpm
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
