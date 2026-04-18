@@ -57,7 +57,8 @@ Test-Case "check-readiness returns ok JSON" {
     $out = & $BinaryPath check-readiness 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    if ($null -eq $json.data.gdiCapture) { throw "missing gdiCapture field" }
+    if ($null -eq $json.data.checks) { throw "missing checks object" }
+    if ($null -eq $json.data.checks.wgc_available) { throw "missing wgc_available field" }
 }
 
 # ── 4. enumerate-windows ─────────────────────────────────────────────────────
@@ -103,8 +104,9 @@ Test-Case "uia-tree with --max-depth 1 returns ok JSON" {
     $out = & $BinaryPath uia-tree --max-depth 1 2>$null | Out-String
     $json = $out | ConvertFrom-Json
     if ($json.status -ne "ok") { throw "expected status=ok, got $($json.status)" }
-    if ($null -eq $json.data.controlType) { throw "missing controlType in root element" }
-    if ($null -eq $json.data.name) { throw "missing name in root element" }
+    if ($null -eq $json.data.tree) { throw "missing tree in response" }
+    if ($null -eq $json.data.tree.controlType) { throw "missing controlType in root element" }
+    if ($null -eq $json.data.tree.name) { throw "missing name in root element" }
 }
 
 Test-Case "uia-tree with non-existent app returns error" {

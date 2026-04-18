@@ -2,6 +2,7 @@
 #include "json_output.h"
 #include <windows.h>
 #include <roapi.h>
+#include <winstring.h>
 #include <winrt/base.h>
 #include <uiautomation.h>
 #include <sstream>
