@@ -3,7 +3,7 @@
 # Rules:
 #   packages/types:     no @understudy/* imports
 #   packages/core:      no @understudy/{tools,gui,gateway,channels} imports
-#   packages/tools:     no @understudy/{gateway,channels} imports (gui is allowed)
+#   packages/tools:     no @understudy/{gateway,channels} imports (gui runtime/native integration is allowed; shared GUI types/helpers should live elsewhere)
 #   packages/gateway:   no @understudy/{channels} imports (gui is allowed for now)
 
 set -euo pipefail
