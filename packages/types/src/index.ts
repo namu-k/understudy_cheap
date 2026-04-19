@@ -52,3 +52,5 @@ export type {
 export { DEFAULT_CONFIG, DEFAULT_BROWSER_EXTENSION_CDP_URL } from "./config.js";
 
 export * from "./grounding.js";
+
+export type { Win32UiaTreeNode } from "./gui.js";

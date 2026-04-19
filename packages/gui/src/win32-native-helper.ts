@@ -1,5 +1,6 @@
 import { access, constants } from "node:fs/promises";
 import { join } from "node:path";
+import type { Win32UiaTreeNode } from "@understudy/types";
 import { execFileAsync } from "./exec-utils.js";
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -202,18 +203,6 @@ export function mapCaptureContext(raw: Win32CaptureContext): GuiCaptureContext {
 		windowCaptureStrategy: "wgc" as const,
 		appName: raw.frontmostApp || undefined,
 	};
-}
-
-/** A single node in the UIA accessibility tree returned by the Win32 helper. */
-export interface Win32UiaTreeNode {
-	name: string;
-	controlType: string;
-	automationId: string;
-	className: string;
-	bounds: { x: number; y: number; width: number; height: number };
-	isEnabled: boolean;
-	isOffscreen: boolean;
-	children?: Win32UiaTreeNode[];
 }
 
 /**

@@ -16,6 +16,8 @@ import { textResult } from "./bridge/bridge-rpc.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+export type GuiToolRuntime = ComputerUseGuiRuntime;
+
 const GUI_SCOPE_DESCRIPTION =
 	'Optional visible container hint such as a window title, panel name, dialog name, or region. ' +
 	'Examples: "Save As dialog", "left sidebar", "Inspector panel", "macOS top menu bar", "Export Options sheet". ' +

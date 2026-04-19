@@ -1,5 +1,4 @@
 import type { AgentTool } from "@mariozechner/pi-agent-core";
-import type { ComputerUseGuiRuntime } from "@understudy/gui";
 import type { ChannelAdapter, UnderstudyConfig } from "@understudy/types";
 import { createApplyPatchTool } from "./apply-patch-tool.js";
 import { createBrowserTool } from "./browser/browser-tool.js";
@@ -11,6 +10,7 @@ import { createSubagentsTool } from "./bridge/subagents-tool.js";
 import { createExecTool } from "./exec-tool.js";
 import {
 	createGuiToolset,
+	type GuiToolRuntime,
 } from "./gui-tools.js";
 import { createImageTool } from "./image-tool.js";
 import { createMemoryGetTool, createMemoryManageTool, createMemorySearchTool } from "./memory/memory-tool.js";
@@ -38,7 +38,7 @@ import { createWebSearchTool } from "./web-search.js";
 export interface RuntimeToolsetOptions {
 	cwd: string;
 	config?: UnderstudyConfig;
-	guiRuntime?: ComputerUseGuiRuntime;
+	guiRuntime?: GuiToolRuntime;
 	memoryProvider?: MemoryProvider;
 	scheduleService?: ScheduleService;
 	browserOptions?: BrowserManagerOptions | (() => BrowserManagerOptions);

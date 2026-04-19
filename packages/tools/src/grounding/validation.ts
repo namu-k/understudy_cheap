@@ -6,7 +6,7 @@ import type {
 	GuiGroundingMode,
 	GuiGroundingRequest,
 } from "@understudy/types";
-import { normalizeGuiGroundingMode } from "@understudy/gui";
+import { normalizeGuiGroundingMode } from "@understudy/types";
 import { extractJsonObject } from "../response-extract-helpers.js";
 import { asBoolean, asNumber, asRecord, asString } from "@understudy/core";
 

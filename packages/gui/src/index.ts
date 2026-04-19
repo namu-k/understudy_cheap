@@ -27,7 +27,8 @@ export {
 	mapCaptureContext,
 	Win32HelperError,
 } from "./win32-native-helper.js";
-export { getUiaTree, type Win32UiaTreeNode } from "./win32-native-helper.js";
+export { getUiaTree } from "./win32-native-helper.js";
+export type { Win32UiaTreeNode } from "@understudy/types";
 export type {
 	Win32CaptureContext,
 	Win32ReadinessReport,

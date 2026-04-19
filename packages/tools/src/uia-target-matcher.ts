@@ -1,4 +1,4 @@
-import type { Win32UiaTreeNode } from "@understudy/gui";
+import type { Win32UiaTreeNode } from "@understudy/types";
 
 // ---------------------------------------------------------------------------
 // Types

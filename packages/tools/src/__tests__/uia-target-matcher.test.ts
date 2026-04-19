@@ -5,7 +5,7 @@ import {
 	scoreCandidate,
 	type FlatUiaCandidate,
 } from "../uia-target-matcher.js";
-import type { Win32UiaTreeNode } from "@understudy/gui";
+import type { Win32UiaTreeNode } from "@understudy/types";
 
 // ---------------------------------------------------------------------------
 // Helpers
