@@ -11,7 +11,10 @@ if [ "$#" -gt 1 ]; then
 fi
 
 cleanup() {
-  [ -n "${_TMP_CHANGED_FILES:-}" ] && rm -f "$_TMP_CHANGED_FILES"
+  if [ -n "${_TMP_CHANGED_FILES:-}" ]; then
+    rm -f "$_TMP_CHANGED_FILES"
+  fi
+  return 0
 }
 
 trap cleanup EXIT
