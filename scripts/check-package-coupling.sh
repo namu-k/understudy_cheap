@@ -3,7 +3,7 @@
 # Rules:
 #   packages/types:     no @understudy/* imports
 #   packages/core:      no @understudy/{tools,gui,gateway,channels} imports
-#   packages/tools:     no @understudy/{gui,gateway,channels} imports (after Phase 0 fix)
+#   packages/tools:     no @understudy/{gateway,channels} imports (gui runtime/native integration is allowed; shared GUI types/helpers should live elsewhere)
 #   packages/gateway:   no @understudy/{channels} imports (gui is allowed for now)
 
 set -euo pipefail
@@ -12,9 +12,18 @@ check_package() {
   local pkg="$1"
   local forbidden_pattern="$2"
   local desc="$3"
-  
-  violations=$(grep -rn "from ['\"]${forbidden_pattern}" "packages/${pkg}/src/" --include='*.ts' 2>/dev/null | grep -v test | grep -v node_modules || true)
-  
+
+  local violations
+  violations=$(
+    grep -Ern "from ['\"]${forbidden_pattern}" \
+      "packages/${pkg}/src/" \
+      --include='*.ts' \
+      --exclude='*.test.ts' \
+      --exclude='*.spec.ts' \
+      --exclude-dir='__tests__' \
+      2>/dev/null || true
+  )
+
   if [ -n "$violations" ]; then
     echo "❌ COUPLING VIOLATION in ${pkg}: ${desc}"
     echo "$violations"
@@ -26,9 +35,10 @@ check_package() {
 
 errors=0
 
-check_package "types"    "@understudy/"      "types must have zero internal deps" || ((errors++))
-check_package "core"     "@understudy/(tools|gui|gateway|channels)"  "core must not import tools/gui/gateway/channels" || ((errors++))
-check_package "tools"    "@understudy/(gui|gateway|channels)"        "tools must not import gui/gateway/channels" || ((errors++))
+check_package "types"    "@understudy/"                            "types must have zero internal deps" || ((errors++))
+check_package "core"     "@understudy/(tools|gui|gateway|channels)" "core must not import tools/gui/gateway/channels" || ((errors++))
+check_package "tools"    "@understudy/(gateway|channels)"           "tools must not import gateway/channels" || ((errors++))
+check_package "gateway"  "@understudy/channels"                     "gateway must not import channels" || ((errors++))
 
 if [ "$errors" -gt 0 ]; then
   echo ""

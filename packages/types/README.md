@@ -1,10 +1,10 @@
 # @understudy/types
 
-Shared type definitions for the Understudy monorepo.
+Shared type definitions and lightweight helpers for the Understudy monorepo.
 
 ## What This Package Does
 
-Provides the TypeScript interfaces and constants used across all Understudy packages. No runtime logic — just types, enums, and default values.
+Provides the TypeScript interfaces, constants, and small shared helpers used across all Understudy packages. The primary purpose is types, enums, and default values — but a few minimal runtime helpers live here when they are shared by multiple packages and must not introduce heavier cross-package dependencies.
 
 ### Channel types (`channel.ts`)
 
@@ -30,13 +30,25 @@ Full configuration surface for `~/.understudy/config.json5`:
 - `UnderstudyConfig` (top-level) and nested interfaces for agent, channels, tools, memory, skills, browser, gateway, plugins, and runtime policies
 - `DEFAULT_CONFIG` — built-in default values
 
+### GUI shared types (`gui.ts`)
+
+Types shared between `packages/gui` and `packages/tools` to avoid tight coupling:
+
+- `Win32UiaTreeNode` — UI Automation tree node shape (used by Win32 grounding and UIA target matcher)
+
+### Grounding shared helpers (`grounding.ts`)
+
+Types and helpers shared between `packages/gui` and `packages/tools` for grounding:
+
+- `normalizeGuiGroundingMode()` — normalizes grounding mode input to a canonical value
+
 ## Usage
 
 This package is internal to the Understudy monorepo and not published separately.
 
 ```typescript
-import type { UnderstudyConfig, ChannelAdapter, ToolEntry } from "@understudy/types";
-import { DEFAULT_CONFIG } from "@understudy/types";
+import type { UnderstudyConfig, ChannelAdapter, ToolEntry, Win32UiaTreeNode } from "@understudy/types";
+import { DEFAULT_CONFIG, normalizeGuiGroundingMode } from "@understudy/types";
 ```
 
 ## Development

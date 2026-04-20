@@ -4,8 +4,8 @@
  * Grounding resolves semantic GUI targets (e.g., "click the save button")
  * to screen coordinates via LLM-based prediction or platform-specific APIs.
  *
- * This file contains only the grounding-level types. Action execution interfaces,
- * demonstration recorder types, and runtime types remain in @understudy/gui.
+ * This file contains the grounding-level shared contracts plus tiny normalization helpers.
+ * Action execution interfaces, demonstration recorder types, and runtime types remain in @understudy/gui.
  */
 
 export type GuiGroundingActionIntent =
@@ -35,6 +35,10 @@ export interface GuiGroundingBox {
 
 export type GuiGroundingCoordinateSpace = "image_pixels" | "display_pixels";
 export type GuiGroundingMode = "single" | "complex";
+
+export function normalizeGuiGroundingMode(mode?: GuiGroundingMode): GuiGroundingMode {
+	return mode === "complex" ? "complex" : "single";
+}
 export type GuiGroundingFailureKind =
 	| "wrong_region"
 	| "scope_mismatch"

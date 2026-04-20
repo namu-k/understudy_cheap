@@ -6,7 +6,7 @@ import type {
 	GuiGroundingRequest,
 	GuiGroundingResult,
 } from "@understudy/types";
-import { normalizeGuiGroundingMode } from "@understudy/gui";
+import { normalizeGuiGroundingMode } from "@understudy/types";
 import {
 	createGroundingGuideImage,
 	type GroundingGuideImageArtifact,

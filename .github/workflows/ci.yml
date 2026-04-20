@@ -49,23 +49,7 @@ jobs:
 
           git diff --name-only "$base" "$head" > changed-files.txt
           cat changed-files.txt
-
-          common='^(\.github/workflows/ci\.yml|package\.json|pnpm-lock\.yaml|tsconfig\.base\.json|vitest\.package\.config\.ts|packages/gui/package\.json)$'
-          shared_gui='^packages/gui/src/'
-          windows='^packages/gui/native/win32/'
-          macos='^scripts/check-optional-real-gui\.mjs$'
-
-          if grep -Eq "$common|$shared_gui|$windows" changed-files.txt; then
-            echo "windows_native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "windows_native=false" >> "$GITHUB_OUTPUT"
-          fi
-
-          if grep -Eq "$common|$shared_gui|$macos" changed-files.txt; then
-            echo "macos_native=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "macos_native=false" >> "$GITHUB_OUTPUT"
-          fi
+          bash scripts/detect-native-impact.sh changed-files.txt >> "$GITHUB_OUTPUT"
 
   validate:
     runs-on: ubuntu-latest

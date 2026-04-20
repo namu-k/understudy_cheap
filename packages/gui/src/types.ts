@@ -1,14 +1,15 @@
-import type {
-	GuiGroundingActionIntent,
-	GuiCaptureMode,
-	GuiGroundingBox,
-	GuiGroundingCoordinateSpace,
-	GuiGroundingMode,
-	GuiGroundingFailureKind,
-	GuiGroundingFailure,
-	GuiGroundingRequest,
-	GuiGroundingResult,
-	GuiGroundingProvider,
+import {
+	normalizeGuiGroundingMode,
+	type GuiGroundingActionIntent,
+	type GuiCaptureMode,
+	type GuiGroundingBox,
+	type GuiGroundingCoordinateSpace,
+	type GuiGroundingMode,
+	type GuiGroundingFailureKind,
+	type GuiGroundingFailure,
+	type GuiGroundingRequest,
+	type GuiGroundingResult,
+	type GuiGroundingProvider,
 } from "@understudy/types";
 
 export type {
@@ -23,6 +24,8 @@ export type {
 	GuiGroundingResult,
 	GuiGroundingProvider,
 };
+
+export { normalizeGuiGroundingMode };
 
 export interface GuiWindowSelector {
 	title?: string;
@@ -65,10 +68,6 @@ export interface GuiImagePayload {
 }
 
 export type GuiScrollDistance = "small" | "medium" | "page";
-
-export function normalizeGuiGroundingMode(mode?: GuiGroundingMode): GuiGroundingMode {
-	return mode === "complex" ? "complex" : "single";
-}
 
 export interface GuiObserveParams {
 	app?: string;

@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileAsync } from "./exec-utils.js";
-import { normalizeGuiGroundingMode } from "./types.js";
+import { normalizeGuiGroundingMode } from "@understudy/types";
 import {
 	resolveGuiRuntimeCapabilities,
 	type GuiRuntimeCapabilitySnapshot,
