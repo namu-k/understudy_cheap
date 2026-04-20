@@ -2,6 +2,7 @@ import { writeFileSync } from "fs";
 import {
 	BASELINE_WEBCHAT_REF,
 	readBaselineWebChatSource,
+	repoPath,
 } from "./webchat-baseline-utils.mjs";
 
 const src = readBaselineWebChatSource();
@@ -30,15 +31,21 @@ const chatFile = [
 	wrapInExport("chatBeforeSession", chatPart2),
 	wrapInExport("chatAfterSession", chatPart3),
 ].join("\n");
-writeFileSync("packages/gateway/src/webchat/js/chat.ts", chatFile);
-
-writeFileSync("packages/gateway/src/webchat/js/markdown.ts", wrapInExport("markdownJS", mdContent));
-
-const sessionContent = sessionPart1 + "\n" + sidebarContent + "\n" + sessionPart2;
-writeFileSync("packages/gateway/src/webchat/js/session.ts", wrapInExport("sessionJS", sessionContent));
+writeFileSync(repoPath("packages/gateway/src/webchat/js/chat.ts"), chatFile);
 
 writeFileSync(
-	"packages/gateway/src/webchat/js/index.ts",
+	repoPath("packages/gateway/src/webchat/js/markdown.ts"),
+	wrapInExport("markdownJS", mdContent),
+);
+
+const sessionContent = sessionPart1 + "\n" + sidebarContent + "\n" + sessionPart2;
+writeFileSync(
+	repoPath("packages/gateway/src/webchat/js/session.ts"),
+	wrapInExport("sessionJS", sessionContent),
+);
+
+writeFileSync(
+	repoPath("packages/gateway/src/webchat/js/index.ts"),
 	`import { chatBeforeMarkdown, chatBeforeSession, chatAfterSession } from "./chat.js";
 import { sessionJS } from "./session.js";
 import { markdownJS } from "./markdown.js";

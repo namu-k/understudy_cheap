@@ -1,12 +1,28 @@
 import { execFileSync } from "child_process";
+import { dirname, resolve } from "path";
+import { fileURLToPath, pathToFileURL } from "url";
 
 export const BASELINE_WEBCHAT_COMMIT = "202c0bac0ac48bb25d7e556d35edf7705db4e107";
 export const BASELINE_WEBCHAT_PATH = "packages/gateway/src/webchat-ui.ts";
 export const BASELINE_WEBCHAT_REF = `${BASELINE_WEBCHAT_COMMIT}:${BASELINE_WEBCHAT_PATH}`;
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+export function resolveRepoRoot() {
+	return repoRoot;
+}
+
+export function repoPath(relativePath) {
+	return resolve(repoRoot, relativePath);
+}
+
+export function repoFileHref(relativePath) {
+	return pathToFileURL(repoPath(relativePath)).href;
+}
 
 function ensureBaselineCommitAvailable() {
 	try {
 		execFileSync("git", ["cat-file", "-e", `${BASELINE_WEBCHAT_COMMIT}^{commit}`], {
+			cwd: repoRoot,
 			stdio: "ignore",
 		});
 	} catch (error) {
@@ -23,7 +39,10 @@ export function readBaselineWebChatSource() {
 	ensureBaselineCommitAvailable();
 
 	try {
-		return execFileSync("git", ["show", BASELINE_WEBCHAT_REF], { encoding: "utf8" });
+		return execFileSync("git", ["show", BASELINE_WEBCHAT_REF], {
+			cwd: repoRoot,
+			encoding: "utf8",
+		});
 	} catch (error) {
 		if (typeof error?.stdout === "string" && error.stdout.length > 0) {
 			return error.stdout;
@@ -47,8 +66,4 @@ export function stripBaselineWebChatTypes(source) {
 	}
 
 	return rewritten;
-}
-
-export function scriptRelativeFileHref(relativePath) {
-	return new URL(relativePath, import.meta.url).href;
 }

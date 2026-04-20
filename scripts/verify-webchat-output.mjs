@@ -5,14 +5,14 @@ import { pathToFileURL } from "url";
 import {
 	BASELINE_WEBCHAT_REF,
 	readBaselineWebChatSource,
-	scriptRelativeFileHref,
+	repoFileHref,
 	stripBaselineWebChatTypes,
 } from "./webchat-baseline-utils.mjs";
 
 function rewriteBaselineImports(source) {
 	const replacements = new Map([
-		["./ui-brand.js", scriptRelativeFileHref("../packages/gateway/dist/ui-brand.js")],
-		["./session-ui-helpers.js", scriptRelativeFileHref("../packages/gateway/dist/session-ui-helpers.js")],
+		["./ui-brand.js", repoFileHref("packages/gateway/dist/ui-brand.js")],
+		["./session-ui-helpers.js", repoFileHref("packages/gateway/dist/session-ui-helpers.js")],
 	]);
 
 	let rewritten = source;
@@ -56,13 +56,16 @@ const sessionUiHelpersScript = buildSessionUiHelpersScript({ liveChannelId: "web
 const newJs = buildWebChatJS(sessionUiHelpersScript);
 const newOutput = renderWebChatHTML(webChatCSS, newJs, brandIconDataUrl);
 const originalOutput = await buildBaselineWebChatHtml();
+const originalOutputPath = join(tmpdir(), "understudy-original-webchat-output.html");
+const newOutputPath = join(tmpdir(), "understudy-new-webchat-output.html");
 
-writeFileSync("/tmp/original_webchat_output.html", originalOutput);
-writeFileSync("/tmp/new_webchat_output.html", newOutput);
+writeFileSync(originalOutputPath, originalOutput);
+writeFileSync(newOutputPath, newOutput);
 
 console.log("Baseline ref:", BASELINE_WEBCHAT_REF);
 console.log("Original output:", originalOutput.length, "chars,", originalOutput.split("\n").length, "lines");
 console.log("New output:", newOutput.length, "chars,", newOutput.split("\n").length, "lines");
+console.log("Artifacts:", originalOutputPath, newOutputPath);
 
 if (originalOutput === newOutput) {
 	console.log("\n✓✓✓ OUTPUTS MATCH EXACTLY! Byte-identical!");
