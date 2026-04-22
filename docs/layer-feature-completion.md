@@ -78,17 +78,17 @@
 | 1 | Compact turn record (성공 턴 기록) | ✅ | `packages/core/src/workflow-crystallization.ts` |
 | 2 | Day-level segmentation (대화 경계 탐지) | ✅ | crystallization pipeline |
 | 3 | Episode summarization (실행 증거 포함 요약) | ✅ | crystallization pipeline |
-| 4 | Cross-history clustering (LLM-first) | ✅ | crystallization pipeline |
+| 4 | Cross-history clustering (LLM-assisted similarity) | ✅ | crystallization pipeline |
 | 5 | Skill synthesis → SKILL.md publish | ✅ | `packages/core/src/workflow-crystallization.ts` |
 | 6 | 비동기 백그라운드 처리 | ✅ | `packages/gateway/src/workflow-crystallization.ts` |
 | 7 | Hot-refresh active sessions | ✅ | workspace skill loader |
 | 8 | E2E 테스트 | ✅ | `tests/e2e/gateway-workflow-crystallization.e2e.test.ts` |
-| — | **Promotion 정책 (rule-first, 명시적 임계값)** | 🟡 | 현재 LLM-first, heuristic |
+| — | **Promotion 정책 (rule-first, 명시적 임계값)** | 🟡 | 정책 자체는 존재(`workflow-crystallization.ts:950`), CLI/config wiring 누락 |
 | — | **자동 route upgrading (결정화 스킬 내 경로 최적화)** | 🟡 | 관측 상속만, 능동적 최적화 미구현 |
 | — | **Stage 0→3 자동 진행** | 🟡 | "still being refined" (Product Design) |
 | — | **Task skill graph (합성 가능한 그래프 구조)** | ❌ | 여전히 절차적 SKILL.md |
 
-**현재 경계:** segmentation/clustering/synthesis는 LLM-first. Promotion 임계값은 heuristic. 사용자는 일상적으로 사용하면 자동으로 스킬이 결정화됨.
+**현재 경계:** segmentation/clustering/synthesis는 LLM-first. Promotion 임계값은 rule-first로 이미 결정적(`cluster.completeCount >= MIN_CLUSTER_OCCURRENCES_FOR_PROMOTION`). 빠진 건 CLI→config→gateway→session-runtime wiring — 직접 호출자(e2e test)는 이미 옵션을 전달 가능.
 
 ---
 

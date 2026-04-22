@@ -12,7 +12,7 @@
 
 Workflow crystallization (Layer 3) has 7 configurable thresholds defined in `WorkflowCrystallizationRuntimeOptions` (gateway/session-types.ts:163-171). These thresholds control when segmentation, clustering, and skill promotion happen.
 
-**The gap:** These options are never passed from the CLI entry point to the gateway runtime. At `apps/cli/src/commands/gateway.ts:2948`, `createGatewaySessionRuntime()` is called without `workflowCrystallization`, so it defaults to `{}` (session-runtime.ts:518). All thresholds fall back to hardcoded defaults.
+**The gap:** These options are never passed from the CLI entry point to the gateway runtime. The promotion logic itself is **rule-first with deterministic thresholds** (`cluster.completeCount >= MIN_CLUSTER_OCCURRENCES_FOR_PROMOTION` in `workflow-crystallization.ts:950`), and direct callers can already pass options (`session-types.ts:254`, e2e tests). The missing piece is purely **CLI/config wiring** — connecting the config system to the runtime entry point.
 
 **Result:** Users cannot tune crystallization behavior without editing source code.
 
@@ -21,7 +21,7 @@ Workflow crystallization (Layer 3) has 7 configurable thresholds defined in `Wor
 Wire the existing `WorkflowCrystallizationRuntimeOptions` through the configuration system so that users can override crystallization thresholds via:
 
 1. **Config file** (`~/.understudy/config.json5`) — primary path
-2. **Environment variables** (`UNDERSTUDY_WORKFLOW_*`) — for CI/test overrides
+2. **Environment variables** (`UNDERSTUDY_GATEWAY_WORKFLOW_*`) — for CI/test overrides, processed centrally in `config-overrides.ts`
 3. **CLI flags** (`--crystallization-min-promotion`, etc.) — for one-off overrides
 
 No algorithm changes. No new thresholds. Just plumbing existing options through to the runtime.
@@ -108,41 +108,29 @@ sessionRuntime = createGatewaySessionRuntime({
 
 ## 4. Specification
 
-### 4.1 Config Type Extension
+### 4.1 Shared Type Promotion
 
-**File:** `packages/types/src/config.ts`
+**File:** `packages/gateway/src/session-types.ts` → `packages/types/src/grounding.ts` (or new `packages/types/src/workflow-crystallization.ts`)
 
-Add `WorkflowCrystallizationConfig` interface and add it to `GatewayConfig`:
+The 7-field `WorkflowCrystallizationRuntimeOptions` already exists in `packages/gateway/src/session-types.ts:163-171`. Rather than duplicating the same contract as a new `WorkflowCrystallizationConfig` in `packages/types`, **promote the existing type to `packages/types`** so both config schema and runtime share a single source.
 
-```typescript
-/** Workflow crystallization (Layer 3) configuration */
-export interface WorkflowCrystallizationConfig {
-    /** Minimum turns in a day before segmentation is attempted (default: 2) */
-    minTurnsForSegmentation?: number;
-    /** Turn delta before re-analyzing a day's segments (default: 3) */
-    segmentationReanalyzeDelta?: number;
-    /** Minimum episodes before clustering is attempted (default: 2) */
-    minEpisodesForClustering?: number;
-    /** Complete episodes in a cluster required for promotion (default: 3) */
-    minClusterOccurrencesForPromotion?: number;
-    /** Maximum episodes fed into clustering (default: 80) */
-    maxClusteringEpisodes?: number;
-    /** Maximum clusters promoted per analysis cycle (default: 5) */
-    maxPromotedWorkflowCandidates?: number;
-    /** Maximum episodes used in synthesis prompt (default: 6) */
-    maxSynthesisEpisodeExamples?: number;
-}
-```
+Steps:
 
-Add to `GatewayConfig`:
+1. **Move** `WorkflowCrystallizationRuntimeOptions` from `packages/gateway/src/session-types.ts` to `packages/types/src/` (e.g., in a new `workflow-crystallization.ts` barrel, or appended to an existing appropriate module).
+2. **Re-export** from `packages/types` — `gateway/session-types.ts` re-exports it: `export type { WorkflowCrystallizationRuntimeOptions } from "@understudy/types";`
+3. **Add to `GatewayConfig`** in `packages/types/src/config.ts`:
 
 ```typescript
+import type { WorkflowCrystallizationRuntimeOptions } from "./workflow-crystallization";
+
 export interface GatewayConfig {
     // ... existing fields ...
     /** Workflow crystallization thresholds (Layer 3) */
-    workflowCrystallization?: WorkflowCrystallizationConfig;
+    workflowCrystallization?: WorkflowCrystallizationRuntimeOptions;
 }
 ```
+
+This avoids drift: one type, one location, consumed by both config and runtime.
 
 ### 4.2 Config Schema Extension
 
@@ -175,41 +163,35 @@ sessionRuntime = createGatewaySessionRuntime({
 
 ### 4.5 Environment Variable Support
 
-**File:** `packages/gateway/src/session-runtime.ts` or a new helper
+**File:** `packages/core/src/config-overrides.ts` (in `applyGatewayEnvOverrides`)
 
-Add a function that reads `UNDERSTUDY_WORKFLOW_*` env vars and merges them with config:
+The project uses a centralized env override system. All env overrides are read in `config-overrides.ts` via helpers like `readIntegerEnv()` and `readEnumEnv()`, then written into the config object before validation. Session-runtime must **never** read `process.env` directly — doing so would bypass schema validation, pollute tests with ambient env, and break the `UNDERSTUDY_GATEWAY_*` naming convention.
+
+Add `UNDERSTUDY_GATEWAY_WORKFLOW_*` overrides inside the existing `applyGatewayEnvOverrides()` function:
 
 ```typescript
-function resolveWorkflowCrystallizationOptions(
-    configOptions?: WorkflowCrystallizationConfig,
-): WorkflowCrystallizationRuntimeOptions {
-    return {
-        minTurnsForSegmentation:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MIN_TURNS") ?? configOptions?.minTurnsForSegmentation,
-        segmentationReanalyzeDelta:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_REANALYZE_DELTA") ?? configOptions?.segmentationReanalyzeDelta,
-        minEpisodesForClustering:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MIN_EPISODES") ?? configOptions?.minEpisodesForClustering,
-        minClusterOccurrencesForPromotion:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MIN_PROMOTION") ?? configOptions?.minClusterOccurrencesForPromotion,
-        maxClusteringEpisodes:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MAX_CLUSTERING") ?? configOptions?.maxClusteringEpisodes,
-        maxPromotedWorkflowCandidates:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MAX_CANDIDATES") ?? configOptions?.maxPromotedWorkflowCandidates,
-        maxSynthesisEpisodeExamples:
-            parseEnvInt("UNDERSTUDY_WORKFLOW_MAX_SYNTHESIS") ?? configOptions?.maxSynthesisEpisodeExamples,
-    };
-}
+// Inside applyGatewayEnvOverrides(), after existing gateway overrides:
 
-function parseEnvInt(name: string): number | undefined {
-    const val = process.env[name];
-    if (val == null) return undefined;
-    const parsed = parseInt(val, 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-}
+const minTurns = readIntegerEnv("UNDERSTUDY_GATEWAY_WORKFLOW_MIN_TURNS", 1);
+applyWhenDefined(minTurns, (value) => {
+    updateGatewayConfig(config, {
+        workflowCrystallization: { ...config.gateway?.workflowCrystallization, minTurnsForSegmentation: value },
+    });
+});
+
+const reanalyzeDelta = readIntegerEnv("UNDERSTUDY_GATEWAY_WORKFLOW_REANALYZE_DELTA", 1);
+applyWhenDefined(reanalyzeDelta, (value) => {
+    updateGatewayConfig(config, {
+        workflowCrystallization: { ...config.gateway?.workflowCrystallization, segmentationReanalyzeDelta: value },
+    });
+});
+
+// ... same pattern for remaining 5 thresholds ...
 ```
 
-**Priority order:** CLI flag > env var > config file > hardcoded default
+This follows the existing `UNDERSTUDY_GATEWAY_*` namespace (`UNDERSTUDY_GATEWAY_SESSION_SCOPE`, `UNDERSTUDY_GATEWAY_DM_SCOPE`, etc.) and uses the existing `readIntegerEnv(name, minimum)` helper.
+
+**Priority order:** CLI flag > env var (in `config-overrides.ts`) > config file > hardcoded default in `workflow-crystallization.ts`
 
 ### 4.6 CLI Flags (Optional, Low Priority)
 
@@ -229,22 +211,24 @@ Only expose the 3 most user-facing thresholds as CLI flags. The remaining 4 (rea
 
 | Constant | Default | Controls | Config Key | Env Var |
 |----------|---------|----------|------------|---------|
-| `MIN_TURNS_FOR_WORKFLOW_SEGMENTATION` | 2 | Minimum turns before segmentation | `minTurnsForSegmentation` | `UNDERSTUDY_WORKFLOW_MIN_TURNS` |
-| `WORKFLOW_SEGMENTATION_REANALYZE_DELTA` | 3 | Re-segmentation cadence | `segmentationReanalyzeDelta` | `UNDERSTUDY_WORKFLOW_REANALYZE_DELTA` |
-| `MIN_EPISODES_FOR_WORKFLOW_CLUSTERING` | 2 | Minimum episodes for clustering | `minEpisodesForClustering` | `UNDERSTUDY_WORKFLOW_MIN_EPISODES` |
-| `MIN_CLUSTER_OCCURRENCES_FOR_PROMOTION` | 3 | Promotion eligibility threshold | `minClusterOccurrencesForPromotion` | `UNDERSTUDY_WORKFLOW_MIN_PROMOTION` |
-| `MAX_CLUSTERING_EPISODES` | 80 | Clustering input cap | `maxClusteringEpisodes` | `UNDERSTUDY_WORKFLOW_MAX_CLUSTERING` |
-| `MAX_PROMOTED_WORKFLOW_CANDIDATES` | 5 | Max promoted clusters per cycle | `maxPromotedWorkflowCandidates` | `UNDERSTUDY_WORKFLOW_MAX_CANDIDATES` |
-| `MAX_SYNTHESIS_EPISODE_EXAMPLES` | 6 | Episode examples in synthesis | `maxSynthesisEpisodeExamples` | `UNDERSTUDY_WORKFLOW_MAX_SYNTHESIS` |
+| `MIN_TURNS_FOR_WORKFLOW_SEGMENTATION` | 2 | Minimum turns before segmentation | `minTurnsForSegmentation` | `UNDERSTUDY_GATEWAY_WORKFLOW_MIN_TURNS` |
+| `WORKFLOW_SEGMENTATION_REANALYZE_DELTA` | 3 | Re-segmentation cadence | `segmentationReanalyzeDelta` | `UNDERSTUDY_GATEWAY_WORKFLOW_REANALYZE_DELTA` |
+| `MIN_EPISODES_FOR_WORKFLOW_CLUSTERING` | 2 | Minimum episodes for clustering | `minEpisodesForClustering` | `UNDERSTUDY_GATEWAY_WORKFLOW_MIN_EPISODES` |
+| `MIN_CLUSTER_OCCURRENCES_FOR_PROMOTION` | 3 | Promotion eligibility threshold | `minClusterOccurrencesForPromotion` | `UNDERSTUDY_GATEWAY_WORKFLOW_MIN_PROMOTION` |
+| `MAX_CLUSTERING_EPISODES` | 80 | Clustering input cap | `maxClusteringEpisodes` | `UNDERSTUDY_GATEWAY_WORKFLOW_MAX_CLUSTERING` |
+| `MAX_PROMOTED_WORKFLOW_CANDIDATES` | 5 | Max promoted clusters per cycle | `maxPromotedWorkflowCandidates` | `UNDERSTUDY_GATEWAY_WORKFLOW_MAX_CANDIDATES` |
+| `MAX_SYNTHESIS_EPISODE_EXAMPLES` | 6 | Episode examples in synthesis | `maxSynthesisEpisodeExamples` | `UNDERSTUDY_GATEWAY_WORKFLOW_MAX_SYNTHESIS` |
 
 ## 6. Files to Change
 
 | File | Change | Scope |
 |------|--------|-------|
-| `packages/types/src/config.ts` | Add `WorkflowCrystallizationConfig` interface, add field to `GatewayConfig` | Types only |
+| `packages/types/src/` (new file or existing module) | Promote `WorkflowCrystallizationRuntimeOptions` from gateway to types package | Shared type |
+| `packages/types/src/config.ts` | Add `workflowCrystallization?: WorkflowCrystallizationRuntimeOptions` to `GatewayConfig` | Config type |
+| `packages/gateway/src/session-types.ts` | Re-export promoted type from `@understudy/types` instead of defining locally | Dedup |
 | `packages/core/src/config-schema.ts` | Add validation schema for `workflowCrystallization` under gateway | Validation |
 | `apps/cli/src/commands/gateway.ts` | Pass `config.gateway?.workflowCrystallization` to `createGatewaySessionRuntime`; add optional CLI flags | Wiring |
-| `packages/gateway/src/session-runtime.ts` | Add `resolveWorkflowCrystallizationOptions()` helper for env var merging | Resolution |
+| `packages/core/src/config-overrides.ts` | Add `UNDERSTUDY_GATEWAY_WORKFLOW_*` env overrides in `applyGatewayEnvOverrides()` | Env overrides |
 | Test files (new/updated) | See Section 7 | Tests |
 
 **No changes to:** `packages/gateway/src/workflow-crystallization.ts` (it already reads from the options correctly).
@@ -261,8 +245,8 @@ Only expose the 3 most user-facing thresholds as CLI flags. The remaining 4 (rea
 **File:** `packages/gateway/src/__tests__/session-runtime.test.ts` (existing, extend)
 
 3. **Option propagation:** Mock `createWorkflowCrystallizationPipeline`, create a session runtime with custom `workflowCrystallization` options, verify the pipeline receives them.
-4. **Env var override:** Set `UNDERSTUDY_WORKFLOW_MIN_PROMOTION=5`, verify it overrides config value.
-5. **Priority order:** Set both env var and config, verify env var wins.
+4. **Env var override:** Set `UNDERSTUDY_GATEWAY_WORKFLOW_MIN_PROMOTION=5`, verify it overrides config value via `applyGatewayEnvOverrides`.
+5. **Priority order:** Set both env var and config, verify env var wins (matching existing `UNDERSTUDY_GATEWAY_SESSION_SCOPE` behavior).
 
 ### 7.2 Integration Tests
 
@@ -281,7 +265,7 @@ Only expose the 3 most user-facing thresholds as CLI flags. The remaining 4 (rea
 - [ ] `config.json5` accepts `gateway.workflowCrystallization` with any subset of the 7 threshold fields
 - [ ] Invalid values (negative, zero, non-integer) are rejected by config schema validation
 - [ ] `createGatewaySessionRuntime` receives `workflowCrystallization` from config
-- [ ] Environment variables override config file values
+- [ ] Environment variables (`UNDERSTUDY_GATEWAY_WORKFLOW_*`) override config file values via `config-overrides.ts`
 - [ ] Omitting all overrides preserves current hardcoded defaults (backward compatible)
 - [ ] Existing crystallization tests pass without modification
 - [ ] New tests cover: config validation, option propagation, env var override, threshold effect
